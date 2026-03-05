@@ -173,6 +173,28 @@ def fetch_simple_price(ids: List[str], vs_currencies: List[str] = ["usd"]):
         raise HTTPException(status_code=500, detail=f"Error fetching price data: {str(e)}")
 
 
+def fetch_market_chart(crypto_id: str, days: int = 7, currency: str = "usd"):
+    cache_key = f"market_chart_{crypto_id}_{days}_{currency}"
+    cached = get_from_cache(cache_key)
+    if cached:
+        return cached
+    
+    try:
+        url = f"{COINGECKO_BASE_URL}/coins/{crypto_id}/market_chart"
+        params = {
+            "vs_currency": currency,
+            "days": days
+        }
+        response = requests.get(url, params=params, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+        set_cache(cache_key, data)
+        return data
+    except requests.exceptions.RequestException as e:
+        logging.error(f"Error fetching market chart: {e}")
+        raise HTTPException(status_code=500, detail=f"Error fetching chart data: {str(e)}")
+
+
 # API Routes
 @api_router.get("/")
 async def root():
@@ -287,6 +309,165 @@ async def search_crypto(query: str):
     except requests.exceptions.RequestException as e:
         logging.error(f"Error searching crypto: {e}")
         raise HTTPException(status_code=500, detail=f"Error searching crypto: {str(e)}")
+
+
+@api_router.get("/crypto/chart/{crypto_id}")
+async def get_crypto_chart(crypto_id: str, days: int = 7, currency: str = "usd"):
+    """
+    Get historical price chart data for a cryptocurrency
+    """
+    data = fetch_market_chart(crypto_id, days, currency)
+    
+    # Format the data for frontend
+    prices = data.get("prices", [])
+    formatted_prices = [{"timestamp": price[0], "price": price[1]} for price in prices]
+    
+    return {
+        "id": crypto_id,
+        "days": days,
+        "currency": currency,
+        "prices": formatted_prices
+    }
+
+
+# Portfolio and Alerts Models
+class PortfolioItem(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    crypto_id: str
+    crypto_name: str
+    crypto_symbol: str
+    amount: float
+    purchase_price: float
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class PortfolioItemCreate(BaseModel):
+    crypto_id: str
+    crypto_name: str
+    crypto_symbol: str
+    amount: float
+    purchase_price: float
+
+
+class PriceAlert(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    crypto_id: str
+    crypto_name: str
+    crypto_symbol: str
+    target_price: float
+    condition: str  # "above" or "below"
+    active: bool = True
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class PriceAlertCreate(BaseModel):
+    crypto_id: str
+    crypto_name: str
+    crypto_symbol: str
+    target_price: float
+    condition: str
+
+
+# Portfolio Endpoints
+@api_router.post("/portfolio", response_model=PortfolioItem)
+async def add_portfolio_item(item: PortfolioItemCreate):
+    """
+    Add an item to portfolio
+    """
+    portfolio_obj = PortfolioItem(**item.model_dump())
+    doc = portfolio_obj.model_dump()
+    doc['timestamp'] = doc['timestamp'].isoformat()
+    
+    await db.portfolio.insert_one(doc)
+    return portfolio_obj
+
+
+@api_router.get("/portfolio", response_model=List[PortfolioItem])
+async def get_portfolio():
+    """
+    Get all portfolio items
+    """
+    items = await db.portfolio.find({}, {"_id": 0}).to_list(1000)
+    
+    for item in items:
+        if isinstance(item['timestamp'], str):
+            item['timestamp'] = datetime.fromisoformat(item['timestamp'])
+    
+    return items
+
+
+@api_router.delete("/portfolio/{item_id}")
+async def delete_portfolio_item(item_id: str):
+    """
+    Delete a portfolio item
+    """
+    result = await db.portfolio.delete_one({"id": item_id})
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Portfolio item not found")
+    
+    return {"message": "Portfolio item deleted successfully"}
+
+
+# Price Alert Endpoints
+@api_router.post("/alerts", response_model=PriceAlert)
+async def create_price_alert(alert: PriceAlertCreate):
+    """
+    Create a price alert
+    """
+    alert_obj = PriceAlert(**alert.model_dump())
+    doc = alert_obj.model_dump()
+    doc['timestamp'] = doc['timestamp'].isoformat()
+    
+    await db.alerts.insert_one(doc)
+    return alert_obj
+
+
+@api_router.get("/alerts", response_model=List[PriceAlert])
+async def get_price_alerts():
+    """
+    Get all active price alerts
+    """
+    alerts = await db.alerts.find({"active": True}, {"_id": 0}).to_list(1000)
+    
+    for alert in alerts:
+        if isinstance(alert['timestamp'], str):
+            alert['timestamp'] = datetime.fromisoformat(alert['timestamp'])
+    
+    return alerts
+
+
+@api_router.delete("/alerts/{alert_id}")
+async def delete_price_alert(alert_id: str):
+    """
+    Delete a price alert
+    """
+    result = await db.alerts.delete_one({"id": alert_id})
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Alert not found")
+    
+    return {"message": "Alert deleted successfully"}
+
+
+@api_router.patch("/alerts/{alert_id}")
+async def update_alert_status(alert_id: str, active: bool):
+    """
+    Update alert active status
+    """
+    result = await db.alerts.update_one(
+        {"id": alert_id},
+        {"$set": {"active": active}}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Alert not found")
+    
+    return {"message": "Alert updated successfully"}
 
 
 # Include the router in the main app
