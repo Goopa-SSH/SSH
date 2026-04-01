@@ -1,20 +1,23 @@
 import { useEffect, useState, useMemo } from "react";
 import "@/App.css";
 import axios from "axios";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { Star, TrendingUp, TrendingDown, Bell, Wallet, Plus, Trash2, ArrowUpRight, ArrowDownRight } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from "recharts";
+import {
+  Star, TrendingUp, TrendingDown, Bell, Wallet, Plus, Trash2,
+  ArrowUpRight, ArrowDownRight, Search, RefreshCw, BarChart3, Activity
+} from "lucide-react";
 import { Toaster } from "@/components/ui/sonner";
 import { toast as sonnerToast } from "sonner";
+import { GlobalStatsBar } from "@/components/GlobalStatsBar";
+import { MarketHeatmap } from "@/components/MarketHeatmap";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -39,24 +42,21 @@ function App() {
   const [showChartDialog, setShowChartDialog] = useState(false);
   const [showAlertDialog, setShowAlertDialog] = useState(false);
   const [showPortfolioDialog, setShowPortfolioDialog] = useState(false);
+  const [globalStats, setGlobalStats] = useState(null);
+  const [fearGreed, setFearGreed] = useState(null);
 
-  // Alert form state
   const [alertPrice, setAlertPrice] = useState("");
   const [alertCondition, setAlertCondition] = useState("above");
-
-  // Portfolio form state
   const [portfolioAmount, setPortfolioAmount] = useState("");
   const [portfolioPurchasePrice, setPortfolioPurchasePrice] = useState("");
 
-  // Load favorites from localStorage
+  const currencySymbol = currency === "usd" ? "$" : "\u20AC";
+
   useEffect(() => {
     const saved = localStorage.getItem("cryptoFavorites");
-    if (saved) {
-      setFavorites(JSON.parse(saved));
-    }
+    if (saved) setFavorites(JSON.parse(saved));
   }, []);
 
-  // Fetch crypto markets data
   const fetchCryptoData = async () => {
     try {
       const response = await axios.get(`${API}/crypto/markets?limit=50&currency=${currency}`);
@@ -69,7 +69,6 @@ function App() {
     }
   };
 
-  // Fetch trending cryptos
   const fetchTrendingData = async () => {
     try {
       const response = await axios.get(`${API}/crypto/trending`);
@@ -79,7 +78,6 @@ function App() {
     }
   };
 
-  // Fetch portfolio
   const fetchPortfolio = async () => {
     try {
       const response = await axios.get(`${API}/portfolio`);
@@ -89,7 +87,6 @@ function App() {
     }
   };
 
-  // Fetch alerts
   const fetchAlerts = async () => {
     try {
       const response = await axios.get(`${API}/alerts`);
@@ -99,13 +96,33 @@ function App() {
     }
   };
 
-  // Fetch chart data
+  const fetchGlobalStats = async () => {
+    try {
+      const response = await axios.get(`${API}/crypto/global`);
+      setGlobalStats(response.data);
+    } catch (error) {
+      console.error("Error fetching global stats:", error);
+    }
+  };
+
+  const fetchFearGreed = async () => {
+    try {
+      const response = await axios.get(`${API}/crypto/fear-greed`);
+      setFearGreed(response.data);
+    } catch (error) {
+      console.error("Error fetching fear & greed:", error);
+    }
+  };
+
   const fetchChartData = async (cryptoId, days) => {
     try {
       const response = await axios.get(`${API}/crypto/chart/${cryptoId}?days=${days}&currency=${currency}`);
-      const formattedData = response.data.prices.map(item => ({
-        time: new Date(item.timestamp).toLocaleDateString(),
-        price: item.price
+      const formattedData = response.data.prices.map((item) => ({
+        time: new Date(item.timestamp).toLocaleDateString("fr-FR", {
+          month: "short", day: "numeric",
+          ...(days <= 1 ? { hour: "2-digit", minute: "2-digit" } : {}),
+        }),
+        price: item.price,
       }));
       setChartData(formattedData);
     } catch (error) {
@@ -113,7 +130,6 @@ function App() {
     }
   };
 
-  // Convert crypto
   const handleConvert = async () => {
     try {
       const response = await axios.get(
@@ -121,101 +137,90 @@ function App() {
       );
       setConvertResult(response.data);
     } catch (error) {
-      console.error("Error converting crypto:", error);
+      console.error("Error converting:", error);
+      sonnerToast.error("Erreur de conversion");
     }
   };
 
-  // Toggle favorite
   const toggleFavorite = (cryptoId) => {
     const newFavorites = favorites.includes(cryptoId)
-      ? favorites.filter(id => id !== cryptoId)
+      ? favorites.filter((id) => id !== cryptoId)
       : [...favorites, cryptoId];
     setFavorites(newFavorites);
     localStorage.setItem("cryptoFavorites", JSON.stringify(newFavorites));
-    sonnerToast.success(favorites.includes(cryptoId) ? "Retiré des favoris" : "Ajouté aux favoris");
+    sonnerToast.success(favorites.includes(cryptoId) ? "Retire des favoris" : "Ajoute aux favoris");
   };
 
-  // Add portfolio item
   const addPortfolioItem = async () => {
     if (!selectedCrypto || !portfolioAmount || !portfolioPurchasePrice) return;
-
     try {
       await axios.post(`${API}/portfolio`, {
         crypto_id: selectedCrypto.id,
         crypto_name: selectedCrypto.name,
         crypto_symbol: selectedCrypto.symbol,
         amount: parseFloat(portfolioAmount),
-        purchase_price: parseFloat(portfolioPurchasePrice)
+        purchase_price: parseFloat(portfolioPurchasePrice),
       });
-      sonnerToast.success("Ajouté au portfolio");
+      sonnerToast.success("Ajoute au portfolio");
       fetchPortfolio();
       setShowPortfolioDialog(false);
       setPortfolioAmount("");
       setPortfolioPurchasePrice("");
     } catch (error) {
-      console.error("Error adding portfolio item:", error);
       sonnerToast.error("Erreur lors de l'ajout");
     }
   };
 
-  // Delete portfolio item
   const deletePortfolioItem = async (itemId) => {
     try {
       await axios.delete(`${API}/portfolio/${itemId}`);
-      sonnerToast.success("Retiré du portfolio");
+      sonnerToast.success("Retire du portfolio");
       fetchPortfolio();
     } catch (error) {
       console.error("Error deleting portfolio item:", error);
     }
   };
 
-  // Add price alert
   const addPriceAlert = async () => {
     if (!selectedCrypto || !alertPrice) return;
-
     try {
       await axios.post(`${API}/alerts`, {
         crypto_id: selectedCrypto.id,
         crypto_name: selectedCrypto.name,
         crypto_symbol: selectedCrypto.symbol,
         target_price: parseFloat(alertPrice),
-        condition: alertCondition
+        condition: alertCondition,
       });
-      sonnerToast.success("Alerte créée");
+      sonnerToast.success("Alerte creee");
       fetchAlerts();
       setShowAlertDialog(false);
       setAlertPrice("");
     } catch (error) {
-      console.error("Error creating alert:", error);
-      sonnerToast.error("Erreur lors de la création");
+      sonnerToast.error("Erreur lors de la creation");
     }
   };
 
-  // Delete alert
   const deleteAlert = async (alertId) => {
     try {
       await axios.delete(`${API}/alerts/${alertId}`);
-      sonnerToast.success("Alerte supprimée");
+      sonnerToast.success("Alerte supprimee");
       fetchAlerts();
     } catch (error) {
       console.error("Error deleting alert:", error);
     }
   };
 
-  // Open chart modal
   const openChart = (crypto) => {
     setSelectedCrypto(crypto);
     fetchChartData(crypto.id, chartDays);
     setShowChartDialog(true);
   };
 
-  // Open alert modal
   const openAlertDialog = (crypto) => {
     setSelectedCrypto(crypto);
     setShowAlertDialog(true);
   };
 
-  // Open portfolio modal
   const openPortfolioDialog = (crypto) => {
     setSelectedCrypto(crypto);
     setShowPortfolioDialog(true);
@@ -226,11 +231,14 @@ function App() {
     fetchTrendingData();
     fetchPortfolio();
     fetchAlerts();
+    fetchGlobalStats();
+    fetchFearGreed();
 
-    // Auto-refresh every 60 seconds
     const interval = setInterval(() => {
       fetchCryptoData();
       fetchTrendingData();
+      fetchGlobalStats();
+      fetchFearGreed();
     }, 60000);
 
     return () => clearInterval(interval);
@@ -242,586 +250,585 @@ function App() {
     }
   }, [chartDays]);
 
-  // Filter crypto data based on search
   const filteredCryptoData = cryptoData.filter(
     (crypto) =>
       crypto.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       crypto.symbol.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Get favorite cryptos
-  const favoriteCryptos = cryptoData.filter(crypto => favorites.includes(crypto.id));
+  const favoriteCryptos = cryptoData.filter((crypto) => favorites.includes(crypto.id));
 
-  // Calculate portfolio value
   const portfolioValue = useMemo(() => {
     let total = 0;
     let invested = 0;
-    
-    portfolio.forEach(item => {
-      const crypto = cryptoData.find(c => c.id === item.crypto_id);
+    portfolio.forEach((item) => {
+      const crypto = cryptoData.find((c) => c.id === item.crypto_id);
       if (crypto) {
-        const currentValue = item.amount * crypto.current_price;
-        const investedValue = item.amount * item.purchase_price;
-        total += currentValue;
-        invested += investedValue;
+        total += item.amount * crypto.current_price;
+        invested += item.amount * item.purchase_price;
       }
     });
-    
-    return { total, invested, profit: total - invested, profitPercent: invested > 0 ? ((total - invested) / invested) * 100 : 0 };
+    return {
+      total,
+      invested,
+      profit: total - invested,
+      profitPercent: invested > 0 ? ((total - invested) / invested) * 100 : 0,
+    };
   }, [portfolio, cryptoData]);
 
-  // Format large numbers
   const formatNumber = (num) => {
-    if (num >= 1e9) return `$${(num / 1e9).toFixed(2)}B`;
-    if (num >= 1e6) return `$${(num / 1e6).toFixed(2)}M`;
-    if (num >= 1e3) return `$${(num / 1e3).toFixed(2)}K`;
-    return `$${num.toFixed(2)}`;
+    if (num >= 1e12) return `${currencySymbol}${(num / 1e12).toFixed(2)}T`;
+    if (num >= 1e9) return `${currencySymbol}${(num / 1e9).toFixed(2)}B`;
+    if (num >= 1e6) return `${currencySymbol}${(num / 1e6).toFixed(2)}M`;
+    if (num >= 1e3) return `${currencySymbol}${(num / 1e3).toFixed(2)}K`;
+    return `${currencySymbol}${num.toFixed(2)}`;
   };
 
-  const CryptoCard = ({ crypto }) => (
-    <Card
-      className="bg-black/40 border-purple-500/30 hover:border-purple-500/60 transition-all"
-      data-testid={`crypto-card-${crypto.id}`}
+  const PriceChange = ({ value, className = "" }) => {
+    if (value === null || value === undefined) return <span className="text-[#737373]">--</span>;
+    const positive = value > 0;
+    return (
+      <span className={`font-mono font-semibold inline-flex items-center gap-0.5 ${positive ? "text-[#00FFAA]" : "text-[#FF3B30]"} ${className}`}>
+        {positive ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
+        {Math.abs(value).toFixed(2)}%
+      </span>
+    );
+  };
+
+  const CryptoRow = ({ crypto, index }) => (
+    <div
+      className="flex items-center gap-4 px-4 py-3 bg-[#0A0A0A] border-b border-[#262626] hover:bg-[#111111] transition-colors duration-200 group"
+      data-testid={`crypto-row-${crypto.id}`}
     >
-      <CardContent className="p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4 flex-1">
-            <img
-              src={crypto.image}
-              alt={crypto.name}
-              className="w-12 h-12 rounded-full"
-            />
-            <div className="flex-1">
-              <div className="flex items-center space-x-2">
-                <h3 className="text-lg font-bold text-white">{crypto.name}</h3>
-                <Badge variant="outline" className="text-purple-300 border-purple-500/50">
-                  {crypto.symbol.toUpperCase()}
-                </Badge>
-                {crypto.market_cap_rank && (
-                  <Badge className="bg-purple-600">#{crypto.market_cap_rank}</Badge>
-                )}
-              </div>
-              <p className="text-sm text-purple-300">
-                Market Cap: {formatNumber(crypto.market_cap)}
-              </p>
-            </div>
-          </div>
-
-          <div className="text-right space-y-1">
-            <p className="text-2xl font-bold text-white">
-              {currency === "usd" ? "$" : "€"}{crypto.current_price.toLocaleString()}
-            </p>
-            {crypto.price_change_percentage_24h !== null && (
-              <Badge
-                variant={crypto.price_change_percentage_24h > 0 ? "default" : "destructive"}
-                className="text-sm"
-              >
-                {crypto.price_change_percentage_24h > 0 ? "↑" : "↓"}{" "}
-                {Math.abs(crypto.price_change_percentage_24h).toFixed(2)}%
-              </Badge>
-            )}
-          </div>
+      <span className="text-[#737373] font-mono text-xs w-6 text-right">{index + 1}</span>
+      <img src={crypto.image} alt={crypto.name} className="w-8 h-8 rounded-full" />
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <span className="font-heading font-bold text-white text-sm">{crypto.name}</span>
+          <span className="text-[#737373] font-mono text-xs uppercase">{crypto.symbol}</span>
         </div>
-
-        <div className="flex gap-2 mt-3">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => toggleFavorite(crypto.id)}
-            className="border-purple-500/50 hover:bg-purple-600/20"
-          >
-            <Star className={favorites.includes(crypto.id) ? "fill-yellow-400 text-yellow-400" : ""} size={16} />
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => openChart(crypto)}
-            className="border-purple-500/50 hover:bg-purple-600/20"
-          >
-            📈 Graphique
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => openAlertDialog(crypto)}
-            className="border-purple-500/50 hover:bg-purple-600/20"
-          >
-            <Bell size={16} />
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => openPortfolioDialog(crypto)}
-            className="border-purple-500/50 hover:bg-purple-600/20"
-          >
-            <Plus size={16} />
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+      </div>
+      <div className="text-right w-28">
+        <span className="font-mono font-semibold text-white text-sm">
+          {currencySymbol}{crypto.current_price >= 1
+            ? crypto.current_price.toLocaleString(undefined, { maximumFractionDigits: 2 })
+            : crypto.current_price.toFixed(6)}
+        </span>
+      </div>
+      <div className="w-20 text-right">
+        <PriceChange value={crypto.price_change_percentage_24h} className="text-xs" />
+      </div>
+      <div className="hidden md:block text-right w-28">
+        <span className="font-mono text-[#A3A3A3] text-xs">{formatNumber(crypto.market_cap)}</span>
+      </div>
+      <div className="hidden lg:block text-right w-28">
+        <span className="font-mono text-[#A3A3A3] text-xs">{formatNumber(crypto.total_volume)}</span>
+      </div>
+      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+        <button
+          onClick={() => toggleFavorite(crypto.id)}
+          className="p-1.5 hover:bg-[#262626] rounded-sm transition-colors"
+          data-testid={`fav-btn-${crypto.id}`}
+        >
+          <Star size={14} className={favorites.includes(crypto.id) ? "fill-[#FFD60A] text-[#FFD60A]" : "text-[#737373]"} />
+        </button>
+        <button
+          onClick={() => openChart(crypto)}
+          className="p-1.5 hover:bg-[#262626] rounded-sm transition-colors"
+          data-testid={`chart-btn-${crypto.id}`}
+        >
+          <BarChart3 size={14} className="text-[#737373]" />
+        </button>
+        <button
+          onClick={() => openAlertDialog(crypto)}
+          className="p-1.5 hover:bg-[#262626] rounded-sm transition-colors"
+          data-testid={`alert-btn-${crypto.id}`}
+        >
+          <Bell size={14} className="text-[#737373]" />
+        </button>
+        <button
+          onClick={() => openPortfolioDialog(crypto)}
+          className="p-1.5 hover:bg-[#262626] rounded-sm transition-colors"
+          data-testid={`portfolio-btn-${crypto.id}`}
+        >
+          <Plus size={14} className="text-[#737373]" />
+        </button>
+      </div>
+    </div>
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+    <div className="min-h-screen bg-[#050505] text-white font-body">
       <Toaster position="top-right" />
-      
+
+      {/* Global Stats Ticker */}
+      <GlobalStatsBar globalStats={globalStats} fearGreed={fearGreed} />
+
       {/* Header */}
-      <div className="bg-black/30 backdrop-blur-sm border-b border-purple-500/30">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center">
-                <span className="text-2xl">₿</span>
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold text-white">Crypto Portal Pro</h1>
-                <p className="text-purple-300 text-sm">
-                  Suivi en temps réel des cryptomonnaies
-                </p>
-              </div>
+      <header className="bg-[#0A0A0A] border-b border-[#262626]" data-testid="app-header">
+        <div className="max-w-[1440px] mx-auto px-6 py-5 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 bg-[#007AFF] rounded-sm flex items-center justify-center font-heading font-black text-lg">
+              C
             </div>
-            <div className="flex items-center gap-4">
-              <Select value={currency} onValueChange={setCurrency}>
-                <SelectTrigger className="w-24 bg-black/40 border-purple-500/30 text-white">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="usd">USD $</SelectItem>
-                  <SelectItem value="eur">EUR €</SelectItem>
-                </SelectContent>
-              </Select>
-              <div className="text-right">
-                <p className="text-xs text-purple-300">Dernière mise à jour</p>
-                <p className="text-sm text-white font-mono">
-                  {lastUpdate.toLocaleTimeString("fr-FR")}
-                </p>
-              </div>
+            <div>
+              <h1 className="font-heading font-black text-xl tracking-tight text-white">
+                CRYPTO PORTAL PRO
+              </h1>
+              <p className="text-[#737373] text-xs mt-0.5 tracking-wide">
+                Suivi en temps reel
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-4">
+            <Select value={currency} onValueChange={setCurrency}>
+              <SelectTrigger
+                className="w-24 bg-[#111111] border-[#262626] text-white text-xs rounded-sm"
+                data-testid="currency-toggle"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-[#0A0A0A] border-[#262626]">
+                <SelectItem value="usd">USD $</SelectItem>
+                <SelectItem value="eur">EUR &euro;</SelectItem>
+              </SelectContent>
+            </Select>
+            <div className="text-right hidden sm:block">
+              <p className="text-[10px] text-[#737373] uppercase tracking-widest">Mise a jour</p>
+              <p className="text-xs text-white font-mono">{lastUpdate.toLocaleTimeString("fr-FR")}</p>
             </div>
           </div>
         </div>
-      </div>
+      </header>
 
-      <div className="container mx-auto px-4 py-8">
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <Card className="bg-gradient-to-br from-blue-500/20 to-cyan-500/20 border-cyan-500/30">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-cyan-300 text-sm">Total Marchés</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold text-white">{cryptoData.length}</p>
-              <p className="text-xs text-cyan-200 mt-1">Cryptomonnaies suivies</p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-br from-purple-500/20 to-pink-500/20 border-pink-500/30">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-pink-300 text-sm">Bitcoin</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {cryptoData.length > 0 && (
-                <>
-                  <p className="text-3xl font-bold text-white">
-                    {formatNumber(cryptoData[0]?.current_price || 0)}
-                  </p>
-                  <Badge
-                    variant={cryptoData[0]?.price_change_percentage_24h > 0 ? "default" : "destructive"}
-                    className="mt-2"
-                  >
-                    {cryptoData[0]?.price_change_percentage_24h > 0 ? "↑" : "↓"}{" "}
-                    {Math.abs(cryptoData[0]?.price_change_percentage_24h || 0).toFixed(2)}%
-                  </Badge>
-                </>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-br from-green-500/20 to-emerald-500/20 border-emerald-500/30">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-emerald-300 text-sm">Portfolio</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold text-white">{formatNumber(portfolioValue.total)}</p>
-              <Badge
-                variant={portfolioValue.profit >= 0 ? "default" : "destructive"}
-                className="mt-2"
-              >
-                {portfolioValue.profit >= 0 ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
-                {portfolioValue.profitPercent.toFixed(2)}%
-              </Badge>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-br from-orange-500/20 to-red-500/20 border-orange-500/30">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-orange-300 text-sm">Alertes</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold text-white">{alerts.length}</p>
-              <p className="text-xs text-orange-200 mt-1">Alertes actives</p>
-            </CardContent>
-          </Card>
+      <div className="max-w-[1440px] mx-auto px-6 py-6">
+        {/* Summary Cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6" data-testid="summary-cards">
+          <div className="bg-[#0A0A0A] border border-[#262626] rounded-sm p-4">
+            <p className="text-[10px] text-[#737373] uppercase tracking-widest mb-2">Total Marches</p>
+            <p className="font-mono font-bold text-2xl text-white">{cryptoData.length}</p>
+            <p className="text-[#737373] text-xs mt-1">cryptos suivies</p>
+          </div>
+          <div className="bg-[#0A0A0A] border border-[#262626] rounded-sm p-4">
+            <p className="text-[10px] text-[#737373] uppercase tracking-widest mb-2">Bitcoin</p>
+            {cryptoData[0] && (
+              <>
+                <p className="font-mono font-bold text-2xl text-white">
+                  {currencySymbol}{cryptoData[0].current_price?.toLocaleString()}
+                </p>
+                <PriceChange value={cryptoData[0].price_change_percentage_24h} className="text-xs mt-1" />
+              </>
+            )}
+          </div>
+          <div className="bg-[#0A0A0A] border border-[#262626] rounded-sm p-4">
+            <p className="text-[10px] text-[#737373] uppercase tracking-widest mb-2">Portfolio</p>
+            <p className="font-mono font-bold text-2xl text-white">{formatNumber(portfolioValue.total)}</p>
+            <PriceChange value={portfolioValue.profitPercent} className="text-xs mt-1" />
+          </div>
+          <div className="bg-[#0A0A0A] border border-[#262626] rounded-sm p-4">
+            <p className="text-[10px] text-[#737373] uppercase tracking-widest mb-2">Alertes</p>
+            <p className="font-mono font-bold text-2xl text-white">{alerts.length}</p>
+            <p className="text-[#737373] text-xs mt-1">alertes actives</p>
+          </div>
         </div>
 
         {/* Main Tabs */}
-        <Tabs defaultValue="markets" className="space-y-6">
-          <TabsList className="bg-black/40 border border-purple-500/30">
-            <TabsTrigger value="markets" className="data-[state=active]:bg-purple-600">
-              📊 Marchés
+        <Tabs defaultValue="markets" className="space-y-4">
+          <TabsList className="bg-[#0A0A0A] border border-[#262626] rounded-sm h-10 p-1" data-testid="main-tabs">
+            <TabsTrigger value="markets" className="rounded-sm text-xs font-body data-[state=active]:text-white px-3">
+              Marches
             </TabsTrigger>
-            <TabsTrigger value="favorites" className="data-[state=active]:bg-purple-600">
-              ⭐ Favoris
+            <TabsTrigger value="heatmap" className="rounded-sm text-xs font-body data-[state=active]:text-white px-3">
+              Heatmap
             </TabsTrigger>
-            <TabsTrigger value="trending" className="data-[state=active]:bg-purple-600">
-              🔥 Tendances
+            <TabsTrigger value="favorites" className="rounded-sm text-xs font-body data-[state=active]:text-white px-3">
+              Favoris
             </TabsTrigger>
-            <TabsTrigger value="portfolio" className="data-[state=active]:bg-purple-600">
-              💼 Portfolio
+            <TabsTrigger value="trending" className="rounded-sm text-xs font-body data-[state=active]:text-white px-3">
+              Tendances
             </TabsTrigger>
-            <TabsTrigger value="alerts" className="data-[state=active]:bg-purple-600">
-              🔔 Alertes
+            <TabsTrigger value="portfolio" className="rounded-sm text-xs font-body data-[state=active]:text-white px-3">
+              Portfolio
             </TabsTrigger>
-            <TabsTrigger value="converter" className="data-[state=active]:bg-purple-600">
-              💱 Convertisseur
+            <TabsTrigger value="alerts" className="rounded-sm text-xs font-body data-[state=active]:text-white px-3">
+              Alertes
+            </TabsTrigger>
+            <TabsTrigger value="converter" className="rounded-sm text-xs font-body data-[state=active]:text-white px-3">
+              Convertisseur
             </TabsTrigger>
           </TabsList>
 
           {/* Markets Tab */}
-          <TabsContent value="markets" className="space-y-4">
-            <div className="flex gap-4">
-              <Input
-                placeholder="Rechercher une cryptomonnaie..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="bg-black/40 border-purple-500/30 text-white placeholder:text-purple-300"
-              />
-              <Button onClick={fetchCryptoData} className="bg-purple-600 hover:bg-purple-700">
-                🔄 Actualiser
+          <TabsContent value="markets" className="space-y-0" data-testid="markets-tab">
+            <div className="flex gap-3 mb-4">
+              <div className="relative flex-1">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#737373]" />
+                <Input
+                  placeholder="Rechercher..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="bg-[#0A0A0A] border-[#262626] text-white pl-9 rounded-sm text-sm placeholder:text-[#737373]"
+                  data-testid="search-input"
+                />
+              </div>
+              <Button
+                onClick={fetchCryptoData}
+                variant="outline"
+                className="bg-[#0A0A0A] border-[#262626] text-[#A3A3A3] hover:text-white hover:bg-[#111111] rounded-sm"
+                data-testid="refresh-button"
+              >
+                <RefreshCw size={14} />
               </Button>
             </div>
 
+            {/* Table Header */}
+            <div className="flex items-center gap-4 px-4 py-2 bg-[#050505] border border-[#262626] border-b-0 rounded-t-sm text-[10px] text-[#737373] uppercase tracking-widest">
+              <span className="w-6 text-right">#</span>
+              <span className="w-8" />
+              <span className="flex-1">Nom</span>
+              <span className="w-28 text-right">Prix</span>
+              <span className="w-20 text-right">24h</span>
+              <span className="hidden md:block w-28 text-right">Cap.</span>
+              <span className="hidden lg:block w-28 text-right">Volume</span>
+              <span className="w-24" />
+            </div>
+
             {loading ? (
-              <div className="space-y-3">
-                {[...Array(10)].map((_, i) => (
-                  <Skeleton key={i} className="h-20 bg-purple-500/20" />
+              <div className="space-y-0 border border-[#262626] rounded-b-sm overflow-hidden">
+                {Array.from({ length: 10 }).map((_, i) => (
+                  <div key={i} className="px-4 py-3 bg-[#0A0A0A] border-b border-[#262626]">
+                    <Skeleton className="h-5 bg-[#111111]" />
+                  </div>
                 ))}
               </div>
             ) : (
-              <div className="space-y-3">
-                {filteredCryptoData.map((crypto) => (
-                  <CryptoCard key={crypto.id} crypto={crypto} />
+              <div className="border border-[#262626] rounded-b-sm overflow-hidden">
+                {filteredCryptoData.map((crypto, i) => (
+                  <CryptoRow key={crypto.id} crypto={crypto} index={i} />
                 ))}
               </div>
             )}
           </TabsContent>
 
+          {/* Heatmap Tab */}
+          <TabsContent value="heatmap" data-testid="heatmap-tab">
+            <MarketHeatmap
+              cryptoData={cryptoData}
+              currency={currency}
+              onCryptoClick={openChart}
+            />
+          </TabsContent>
+
           {/* Favorites Tab */}
-          <TabsContent value="favorites" className="space-y-4">
+          <TabsContent value="favorites" data-testid="favorites-tab">
             {favoriteCryptos.length === 0 ? (
-              <Card className="bg-black/40 border-purple-500/30">
-                <CardContent className="p-12 text-center">
-                  <Star className="w-16 h-16 mx-auto text-purple-400 mb-4" />
-                  <p className="text-white text-lg">Aucun favori pour le moment</p>
-                  <p className="text-purple-300 text-sm mt-2">
-                    Cliquez sur l'étoile pour ajouter des cryptos à vos favoris
-                  </p>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="space-y-3">
-                {favoriteCryptos.map((crypto) => (
-                  <CryptoCard key={crypto.id} crypto={crypto} />
-                ))}
+              <div className="bg-[#0A0A0A] border border-[#262626] rounded-sm p-16 text-center">
+                <Star className="w-12 h-12 mx-auto text-[#262626] mb-4" />
+                <p className="text-white font-heading font-bold">Aucun favori</p>
+                <p className="text-[#737373] text-sm mt-2">
+                  Survolez une crypto et cliquez sur l'etoile pour l'ajouter
+                </p>
               </div>
+            ) : (
+              <>
+                <div className="flex items-center gap-4 px-4 py-2 bg-[#050505] border border-[#262626] border-b-0 rounded-t-sm text-[10px] text-[#737373] uppercase tracking-widest">
+                  <span className="w-6 text-right">#</span>
+                  <span className="w-8" />
+                  <span className="flex-1">Nom</span>
+                  <span className="w-28 text-right">Prix</span>
+                  <span className="w-20 text-right">24h</span>
+                  <span className="hidden md:block w-28 text-right">Cap.</span>
+                  <span className="hidden lg:block w-28 text-right">Volume</span>
+                  <span className="w-24" />
+                </div>
+                <div className="border border-[#262626] rounded-b-sm overflow-hidden">
+                  {favoriteCryptos.map((crypto, i) => (
+                    <CryptoRow key={crypto.id} crypto={crypto} index={i} />
+                  ))}
+                </div>
+              </>
             )}
           </TabsContent>
 
           {/* Trending Tab */}
-          <TabsContent value="trending" className="space-y-4">
-            <Card className="bg-black/40 border-purple-500/30">
-              <CardHeader>
-                <CardTitle className="text-white">🔥 Cryptos en Tendance</CardTitle>
-                <CardDescription className="text-purple-300">
-                  Les cryptomonnaies les plus populaires du moment
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {trendingData.map((crypto, index) => (
-                    <Card
-                      key={crypto.id}
-                      className="bg-gradient-to-br from-purple-500/10 to-pink-500/10 border-purple-500/30"
-                      data-testid={`trending-card-${crypto.id}`}
-                    >
-                      <CardContent className="p-4">
-                        <div className="flex items-center space-x-3">
-                          <div className="text-2xl font-bold text-purple-400">#{index + 1}</div>
-                          <img src={crypto.thumb} alt={crypto.name} className="w-10 h-10 rounded-full" />
-                          <div className="flex-1">
-                            <h4 className="font-bold text-white">{crypto.name}</h4>
-                            <p className="text-sm text-purple-300">{crypto.symbol.toUpperCase()}</p>
-                          </div>
-                          {crypto.market_cap_rank && (
-                            <Badge className="bg-purple-600">Rang #{crypto.market_cap_rank}</Badge>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+          <TabsContent value="trending" data-testid="trending-tab">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-[#262626] rounded-sm overflow-hidden">
+              {trendingData.map((crypto, index) => (
+                <div
+                  key={crypto.id}
+                  className="bg-[#0A0A0A] p-4 flex items-center gap-4 hover:bg-[#111111] transition-colors"
+                  data-testid={`trending-card-${crypto.id}`}
+                >
+                  <span className="font-mono font-bold text-[#007AFF] text-lg w-8">
+                    {String(index + 1).padStart(2, "0")}
+                  </span>
+                  <img src={crypto.thumb} alt={crypto.name} className="w-10 h-10 rounded-full" />
+                  <div className="flex-1">
+                    <p className="font-heading font-bold text-white text-sm">{crypto.name}</p>
+                    <p className="text-[#737373] font-mono text-xs">{crypto.symbol.toUpperCase()}</p>
+                  </div>
+                  {crypto.market_cap_rank && (
+                    <span className="font-mono text-xs text-[#737373] border border-[#262626] px-2 py-1 rounded-sm">
+                      #{crypto.market_cap_rank}
+                    </span>
+                  )}
                 </div>
-              </CardContent>
-            </Card>
+              ))}
+            </div>
           </TabsContent>
 
           {/* Portfolio Tab */}
-          <TabsContent value="portfolio" className="space-y-4">
-            <Card className="bg-black/40 border-purple-500/30">
-              <CardHeader>
-                <div className="flex justify-between items-center">
-                  <div>
-                    <CardTitle className="text-white">💼 Mon Portfolio</CardTitle>
-                    <CardDescription className="text-purple-300">
-                      Valeur totale: {formatNumber(portfolioValue.total)} • Investi: {formatNumber(portfolioValue.invested)}
-                    </CardDescription>
+          <TabsContent value="portfolio" data-testid="portfolio-tab">
+            <div className="bg-[#0A0A0A] border border-[#262626] rounded-sm">
+              <div className="p-4 border-b border-[#262626] flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] text-[#737373] uppercase tracking-widest">Valeur Totale</p>
+                  <p className="font-mono font-bold text-3xl text-white mt-1">{formatNumber(portfolioValue.total)}</p>
+                  <div className="flex items-center gap-4 mt-2 text-xs">
+                    <span className="text-[#737373]">Investi: <span className="font-mono text-white">{formatNumber(portfolioValue.invested)}</span></span>
+                    <span className={`font-mono font-semibold ${portfolioValue.profit >= 0 ? "text-[#00FFAA]" : "text-[#FF3B30]"}`}>
+                      {portfolioValue.profit >= 0 ? "+" : ""}{formatNumber(portfolioValue.profit)} ({portfolioValue.profitPercent.toFixed(2)}%)
+                    </span>
                   </div>
-                  <Badge variant={portfolioValue.profit >= 0 ? "default" : "destructive"} className="text-lg px-4 py-2">
-                    {portfolioValue.profit >= 0 ? "+" : ""}{formatNumber(portfolioValue.profit)} ({portfolioValue.profitPercent.toFixed(2)}%)
-                  </Badge>
                 </div>
-              </CardHeader>
-              <CardContent>
-                {portfolio.length === 0 ? (
-                  <div className="text-center py-8">
-                    <Wallet className="w-16 h-16 mx-auto text-purple-400 mb-4" />
-                    <p className="text-white text-lg">Portfolio vide</p>
-                    <p className="text-purple-300 text-sm mt-2">
-                      Ajoutez des cryptos pour suivre vos investissements
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {portfolio.map((item) => {
-                      const crypto = cryptoData.find(c => c.id === item.crypto_id);
-                      const currentValue = crypto ? item.amount * crypto.current_price : 0;
-                      const investedValue = item.amount * item.purchase_price;
-                      const profit = currentValue - investedValue;
-                      const profitPercent = (profit / investedValue) * 100;
+              </div>
+              {portfolio.length === 0 ? (
+                <div className="p-16 text-center">
+                  <Wallet className="w-12 h-12 mx-auto text-[#262626] mb-4" />
+                  <p className="text-white font-heading font-bold">Portfolio vide</p>
+                  <p className="text-[#737373] text-sm mt-2">Ajoutez des cryptos pour suivre vos investissements</p>
+                </div>
+              ) : (
+                <div>
+                  {portfolio.map((item) => {
+                    const crypto = cryptoData.find((c) => c.id === item.crypto_id);
+                    const currentValue = crypto ? item.amount * crypto.current_price : 0;
+                    const investedValue = item.amount * item.purchase_price;
+                    const profit = currentValue - investedValue;
+                    const profitPct = investedValue > 0 ? (profit / investedValue) * 100 : 0;
 
-                      return (
-                        <Card key={item.id} className="bg-gradient-to-br from-purple-500/10 to-blue-500/10 border-purple-500/30">
-                          <CardContent className="p-4">
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <h4 className="text-white font-bold">{item.crypto_name}</h4>
-                                <p className="text-purple-300 text-sm">
-                                  {item.amount} {item.crypto_symbol.toUpperCase()} • Acheté à {currency === "usd" ? "$" : "€"}{item.purchase_price.toFixed(2)}
-                                </p>
-                              </div>
-                              <div className="text-right">
-                                <p className="text-white font-bold">{formatNumber(currentValue)}</p>
-                                <Badge variant={profit >= 0 ? "default" : "destructive"} className="mt-1">
-                                  {profit >= 0 ? "+" : ""}{formatNumber(profit)} ({profitPercent.toFixed(2)}%)
-                                </Badge>
-                              </div>
-                              <Button
-                                size="sm"
-                                variant="destructive"
-                                onClick={() => deletePortfolioItem(item.id)}
-                              >
-                                <Trash2 size={16} />
-                              </Button>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      );
-                    })}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                    return (
+                      <div
+                        key={item.id}
+                        className="flex items-center gap-4 px-4 py-3 border-b border-[#262626] hover:bg-[#111111] transition-colors"
+                        data-testid={`portfolio-item-${item.id}`}
+                      >
+                        <div className="flex-1">
+                          <p className="font-heading font-bold text-white text-sm">{item.crypto_name}</p>
+                          <p className="text-[#737373] text-xs font-mono">
+                            {item.amount} {item.crypto_symbol.toUpperCase()} @ {currencySymbol}{item.purchase_price.toFixed(2)}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-mono font-semibold text-white text-sm">{formatNumber(currentValue)}</p>
+                          <span className={`font-mono text-xs font-semibold ${profit >= 0 ? "text-[#00FFAA]" : "text-[#FF3B30]"}`}>
+                            {profit >= 0 ? "+" : ""}{formatNumber(profit)} ({profitPct.toFixed(2)}%)
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => deletePortfolioItem(item.id)}
+                          className="p-2 hover:bg-[#FF3B30]/20 rounded-sm transition-colors"
+                          data-testid={`delete-portfolio-${item.id}`}
+                        >
+                          <Trash2 size={14} className="text-[#FF3B30]" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </TabsContent>
 
           {/* Alerts Tab */}
-          <TabsContent value="alerts" className="space-y-4">
-            <Card className="bg-black/40 border-purple-500/30">
-              <CardHeader>
-                <CardTitle className="text-white">🔔 Alertes de Prix</CardTitle>
-                <CardDescription className="text-purple-300">
-                  Soyez notifié quand un prix atteint un seuil
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {alerts.length === 0 ? (
-                  <div className="text-center py-8">
-                    <Bell className="w-16 h-16 mx-auto text-purple-400 mb-4" />
-                    <p className="text-white text-lg">Aucune alerte</p>
-                    <p className="text-purple-300 text-sm mt-2">
-                      Créez des alertes pour être notifié des changements de prix
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {alerts.map((alert) => (
-                      <Card key={alert.id} className="bg-gradient-to-br from-orange-500/10 to-red-500/10 border-orange-500/30">
-                        <CardContent className="p-4">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <h4 className="text-white font-bold">{alert.crypto_name}</h4>
-                              <p className="text-orange-300 text-sm">
-                                Alerte {alert.condition === "above" ? "au-dessus" : "en-dessous"} de {currency === "usd" ? "$" : "€"}{alert.target_price.toFixed(2)}
-                              </p>
-                            </div>
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              onClick={() => deleteAlert(alert.id)}
-                            >
-                              <Trash2 size={16} />
-                            </Button>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+          <TabsContent value="alerts" data-testid="alerts-tab">
+            <div className="bg-[#0A0A0A] border border-[#262626] rounded-sm">
+              <div className="p-4 border-b border-[#262626]">
+                <p className="font-heading font-bold text-white">Alertes de Prix</p>
+                <p className="text-[#737373] text-sm mt-1">Notifications quand un prix atteint un seuil</p>
+              </div>
+              {alerts.length === 0 ? (
+                <div className="p-16 text-center">
+                  <Bell className="w-12 h-12 mx-auto text-[#262626] mb-4" />
+                  <p className="text-white font-heading font-bold">Aucune alerte</p>
+                  <p className="text-[#737373] text-sm mt-2">Creez des alertes depuis la liste des marches</p>
+                </div>
+              ) : (
+                <div>
+                  {alerts.map((alert) => (
+                    <div
+                      key={alert.id}
+                      className="flex items-center gap-4 px-4 py-3 border-b border-[#262626] hover:bg-[#111111] transition-colors"
+                      data-testid={`alert-item-${alert.id}`}
+                    >
+                      <Activity size={16} className={alert.condition === "above" ? "text-[#00FFAA]" : "text-[#FF3B30]"} />
+                      <div className="flex-1">
+                        <p className="font-heading font-bold text-white text-sm">{alert.crypto_name}</p>
+                        <p className="text-[#737373] text-xs">
+                          {alert.condition === "above" ? "Au-dessus de" : "En-dessous de"}{" "}
+                          <span className="font-mono text-white">{currencySymbol}{alert.target_price.toFixed(2)}</span>
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => deleteAlert(alert.id)}
+                        className="p-2 hover:bg-[#FF3B30]/20 rounded-sm transition-colors"
+                        data-testid={`delete-alert-${alert.id}`}
+                      >
+                        <Trash2 size={14} className="text-[#FF3B30]" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </TabsContent>
 
           {/* Converter Tab */}
-          <TabsContent value="converter" className="space-y-4">
-            <Card className="bg-black/40 border-purple-500/30">
-              <CardHeader>
-                <CardTitle className="text-white">💱 Convertisseur Crypto</CardTitle>
-                <CardDescription className="text-purple-300">
-                  Convertir entre différentes cryptomonnaies
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-sm text-purple-300">De</label>
-                    <Select value={convertFrom} onValueChange={setConvertFrom}>
-                      <SelectTrigger className="bg-black/40 border-purple-500/30 text-white">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="bitcoin">Bitcoin (BTC)</SelectItem>
-                        <SelectItem value="ethereum">Ethereum (ETH)</SelectItem>
-                        <SelectItem value="binancecoin">Binance Coin (BNB)</SelectItem>
-                        <SelectItem value="cardano">Cardano (ADA)</SelectItem>
-                        <SelectItem value="solana">Solana (SOL)</SelectItem>
-                        <SelectItem value="ripple">Ripple (XRP)</SelectItem>
-                        <SelectItem value="polkadot">Polkadot (DOT)</SelectItem>
-                        <SelectItem value="dogecoin">Dogecoin (DOGE)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+          <TabsContent value="converter" data-testid="converter-tab">
+            <div className="bg-[#0A0A0A] border border-[#262626] rounded-sm p-6">
+              <p className="font-heading font-bold text-white mb-1">Convertisseur Crypto</p>
+              <p className="text-[#737373] text-sm mb-6">Conversion entre cryptomonnaies</p>
 
-                  <div className="space-y-2">
-                    <label className="text-sm text-purple-300">Montant</label>
-                    <Input
-                      type="number"
-                      value={convertAmount}
-                      onChange={(e) => setConvertAmount(parseFloat(e.target.value) || 0)}
-                      className="bg-black/40 border-purple-500/30 text-white"
-                      min="0"
-                      step="0.01"
-                    />
-                  </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <Label className="text-[10px] text-[#737373] uppercase tracking-widest">De</Label>
+                  <Select value={convertFrom} onValueChange={setConvertFrom}>
+                    <SelectTrigger className="bg-[#111111] border-[#262626] text-white rounded-sm mt-2" data-testid="convert-from">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-[#0A0A0A] border-[#262626]">
+                      <SelectItem value="bitcoin">Bitcoin (BTC)</SelectItem>
+                      <SelectItem value="ethereum">Ethereum (ETH)</SelectItem>
+                      <SelectItem value="binancecoin">BNB</SelectItem>
+                      <SelectItem value="cardano">Cardano (ADA)</SelectItem>
+                      <SelectItem value="solana">Solana (SOL)</SelectItem>
+                      <SelectItem value="ripple">XRP</SelectItem>
+                      <SelectItem value="polkadot">Polkadot (DOT)</SelectItem>
+                      <SelectItem value="dogecoin">Dogecoin (DOGE)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-[10px] text-[#737373] uppercase tracking-widest">Montant</Label>
+                  <Input
+                    type="number"
+                    value={convertAmount}
+                    onChange={(e) => setConvertAmount(parseFloat(e.target.value) || 0)}
+                    className="bg-[#111111] border-[#262626] text-white rounded-sm mt-2 font-mono"
+                    min="0"
+                    step="0.01"
+                    data-testid="convert-amount"
+                  />
+                </div>
+                <div>
+                  <Label className="text-[10px] text-[#737373] uppercase tracking-widest">Vers</Label>
+                  <Select value={convertTo} onValueChange={setConvertTo}>
+                    <SelectTrigger className="bg-[#111111] border-[#262626] text-white rounded-sm mt-2" data-testid="convert-to">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-[#0A0A0A] border-[#262626]">
+                      <SelectItem value="bitcoin">Bitcoin (BTC)</SelectItem>
+                      <SelectItem value="ethereum">Ethereum (ETH)</SelectItem>
+                      <SelectItem value="binancecoin">BNB</SelectItem>
+                      <SelectItem value="cardano">Cardano (ADA)</SelectItem>
+                      <SelectItem value="solana">Solana (SOL)</SelectItem>
+                      <SelectItem value="ripple">XRP</SelectItem>
+                      <SelectItem value="polkadot">Polkadot (DOT)</SelectItem>
+                      <SelectItem value="dogecoin">Dogecoin (DOGE)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
 
-                  <div className="space-y-2">
-                    <label className="text-sm text-purple-300">Vers</label>
-                    <Select value={convertTo} onValueChange={setConvertTo}>
-                      <SelectTrigger className="bg-black/40 border-purple-500/30 text-white">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="bitcoin">Bitcoin (BTC)</SelectItem>
-                        <SelectItem value="ethereum">Ethereum (ETH)</SelectItem>
-                        <SelectItem value="binancecoin">Binance Coin (BNB)</SelectItem>
-                        <SelectItem value="cardano">Cardano (ADA)</SelectItem>
-                        <SelectItem value="solana">Solana (SOL)</SelectItem>
-                        <SelectItem value="ripple">Ripple (XRP)</SelectItem>
-                        <SelectItem value="polkadot">Polkadot (DOT)</SelectItem>
-                        <SelectItem value="dogecoin">Dogecoin (DOGE)</SelectItem>
-                      </SelectContent>
-                    </Select>
+              <Button
+                onClick={handleConvert}
+                className="w-full bg-[#007AFF] hover:bg-[#0066DD] text-white rounded-sm mt-6 font-body font-semibold"
+                data-testid="convert-button"
+              >
+                Convertir
+              </Button>
+
+              {convertResult && (
+                <div className="mt-6 bg-[#111111] border border-[#262626] rounded-sm p-6 text-center" data-testid="conversion-result">
+                  <p className="text-[10px] text-[#737373] uppercase tracking-widest mb-2">Resultat</p>
+                  <p className="font-mono font-bold text-3xl text-white">
+                    {convertResult.result.toFixed(8)}
+                  </p>
+                  <p className="text-[#A3A3A3] text-sm mt-2 font-mono">
+                    {convertAmount} {convertFrom.toUpperCase()} = {convertResult.result.toFixed(8)} {convertTo.toUpperCase()}
+                  </p>
+                  <div className="flex justify-center gap-6 mt-4 pt-4 border-t border-[#262626]">
+                    <span className="text-xs text-[#737373] font-mono">
+                      {convertFrom.toUpperCase()}: ${convertResult.from_price_usd?.toLocaleString()}
+                    </span>
+                    <span className="text-xs text-[#737373] font-mono">
+                      {convertTo.toUpperCase()}: ${convertResult.to_price_usd?.toLocaleString()}
+                    </span>
                   </div>
                 </div>
-
-                <Button
-                  onClick={handleConvert}
-                  className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
-                  data-testid="convert-button"
-                >
-                  Convertir
-                </Button>
-
-                {convertResult && (
-                  <Card className="bg-gradient-to-br from-green-500/20 to-emerald-500/20 border-emerald-500/30">
-                    <CardContent className="p-6 text-center">
-                      <p className="text-sm text-emerald-300 mb-2">Résultat</p>
-                      <p className="text-4xl font-bold text-white mb-4" data-testid="conversion-result">
-                        {convertResult.result.toFixed(8)}
-                      </p>
-                      <p className="text-sm text-emerald-200">
-                        {convertAmount} {convertFrom.toUpperCase()} = {convertResult.result.toFixed(8)} {convertTo.toUpperCase()}
-                      </p>
-                      <div className="mt-4 pt-4 border-t border-emerald-500/30 space-y-1">
-                        <p className="text-xs text-emerald-300">
-                          Prix {convertFrom.toUpperCase()}: ${convertResult.from_price_usd.toLocaleString()}
-                        </p>
-                        <p className="text-xs text-emerald-300">
-                          Prix {convertTo.toUpperCase()}: ${convertResult.to_price_usd.toLocaleString()}
-                        </p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-              </CardContent>
-            </Card>
+              )}
+            </div>
           </TabsContent>
         </Tabs>
       </div>
 
       {/* Chart Dialog */}
       <Dialog open={showChartDialog} onOpenChange={setShowChartDialog}>
-        <DialogContent className="max-w-4xl bg-slate-900 border-purple-500/30">
+        <DialogContent className="max-w-4xl bg-[#0A0A0A] border-[#262626] rounded-sm" data-testid="chart-dialog">
           <DialogHeader>
-            <DialogTitle className="text-white">
-              {selectedCrypto?.name} - Graphique de Prix
+            <DialogTitle className="text-white font-heading">
+              {selectedCrypto?.name} - Graphique
             </DialogTitle>
-            <DialogDescription className="text-purple-300">
-              Évolution du prix sur {chartDays} jours
+            <DialogDescription className="text-[#737373]">
+              Evolution du prix sur {chartDays} jour{chartDays > 1 ? "s" : ""}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="flex gap-2">
-              <Button size="sm" onClick={() => setChartDays(1)} variant={chartDays === 1 ? "default" : "outline"}>
-                24h
-              </Button>
-              <Button size="sm" onClick={() => setChartDays(7)} variant={chartDays === 7 ? "default" : "outline"}>
-                7j
-              </Button>
-              <Button size="sm" onClick={() => setChartDays(30)} variant={chartDays === 30 ? "default" : "outline"}>
-                30j
-              </Button>
-              <Button size="sm" onClick={() => setChartDays(365)} variant={chartDays === 365 ? "default" : "outline"}>
-                1an
-              </Button>
+              {[
+                { label: "24h", val: 1 },
+                { label: "7j", val: 7 },
+                { label: "30j", val: 30 },
+                { label: "1an", val: 365 },
+              ].map((opt) => (
+                <button
+                  key={opt.val}
+                  onClick={() => setChartDays(opt.val)}
+                  className={`px-3 py-1.5 text-xs font-mono rounded-sm transition-colors ${
+                    chartDays === opt.val
+                      ? "bg-[#007AFF] text-white"
+                      : "bg-[#111111] text-[#737373] hover:text-white hover:bg-[#262626]"
+                  }`}
+                  data-testid={`chart-period-${opt.val}`}
+                >
+                  {opt.label}
+                </button>
+              ))}
             </div>
             <ResponsiveContainer width="100%" height={400}>
-              <LineChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#6b21a8" />
-                <XAxis dataKey="time" stroke="#c084fc" />
-                <YAxis stroke="#c084fc" />
+              <AreaChart data={chartData}>
+                <defs>
+                  <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#007AFF" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#007AFF" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" />
+                <XAxis dataKey="time" stroke="#737373" fontSize={10} fontFamily="JetBrains Mono" />
+                <YAxis stroke="#737373" fontSize={10} fontFamily="JetBrains Mono" />
                 <Tooltip
-                  contentStyle={{ backgroundColor: "#1e1b4b", border: "1px solid #6b21a8" }}
-                  labelStyle={{ color: "#c084fc" }}
+                  contentStyle={{
+                    backgroundColor: "#0A0A0A",
+                    border: "1px solid #262626",
+                    borderRadius: "2px",
+                    fontFamily: "JetBrains Mono",
+                    fontSize: 12,
+                  }}
+                  labelStyle={{ color: "#737373" }}
+                  itemStyle={{ color: "#007AFF" }}
                 />
-                <Line type="monotone" dataKey="price" stroke="#a855f7" strokeWidth={2} dot={false} />
-              </LineChart>
+                <Area type="monotone" dataKey="price" stroke="#007AFF" strokeWidth={2} fill="url(#chartGradient)" dot={false} />
+              </AreaChart>
             </ResponsiveContainer>
           </div>
         </DialogContent>
@@ -829,31 +836,34 @@ function App() {
 
       {/* Alert Dialog */}
       <Dialog open={showAlertDialog} onOpenChange={setShowAlertDialog}>
-        <DialogContent className="bg-slate-900 border-purple-500/30">
+        <DialogContent className="bg-[#0A0A0A] border-[#262626] rounded-sm" data-testid="alert-dialog">
           <DialogHeader>
-            <DialogTitle className="text-white">Créer une Alerte de Prix</DialogTitle>
-            <DialogDescription className="text-purple-300">
-              Pour {selectedCrypto?.name} ({selectedCrypto?.symbol.toUpperCase()})
+            <DialogTitle className="text-white font-heading">Creer une Alerte</DialogTitle>
+            <DialogDescription className="text-[#737373]">
+              {selectedCrypto?.name} ({selectedCrypto?.symbol.toUpperCase()})
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="space-y-2">
-              <Label className="text-purple-300">Prix cible ({currency === "usd" ? "$" : "€"})</Label>
+            <div>
+              <Label className="text-[10px] text-[#737373] uppercase tracking-widest">
+                Prix cible ({currencySymbol})
+              </Label>
               <Input
                 type="number"
                 value={alertPrice}
                 onChange={(e) => setAlertPrice(e.target.value)}
-                placeholder="Ex: 50000"
-                className="bg-black/40 border-purple-500/30 text-white"
+                placeholder="50000"
+                className="bg-[#111111] border-[#262626] text-white rounded-sm mt-2 font-mono"
+                data-testid="alert-price-input"
               />
             </div>
-            <div className="space-y-2">
-              <Label className="text-purple-300">Condition</Label>
+            <div>
+              <Label className="text-[10px] text-[#737373] uppercase tracking-widest">Condition</Label>
               <Select value={alertCondition} onValueChange={setAlertCondition}>
-                <SelectTrigger className="bg-black/40 border-purple-500/30 text-white">
+                <SelectTrigger className="bg-[#111111] border-[#262626] text-white rounded-sm mt-2" data-testid="alert-condition">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-[#0A0A0A] border-[#262626]">
                   <SelectItem value="above">Au-dessus</SelectItem>
                   <SelectItem value="below">En-dessous</SelectItem>
                 </SelectContent>
@@ -861,8 +871,12 @@ function App() {
             </div>
           </div>
           <DialogFooter>
-            <Button onClick={addPriceAlert} className="bg-purple-600 hover:bg-purple-700">
-              Créer l'alerte
+            <Button
+              onClick={addPriceAlert}
+              className="bg-[#007AFF] hover:bg-[#0066DD] text-white rounded-sm font-body"
+              data-testid="create-alert-button"
+            >
+              Creer l'alerte
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -870,52 +884,60 @@ function App() {
 
       {/* Portfolio Dialog */}
       <Dialog open={showPortfolioDialog} onOpenChange={setShowPortfolioDialog}>
-        <DialogContent className="bg-slate-900 border-purple-500/30">
+        <DialogContent className="bg-[#0A0A0A] border-[#262626] rounded-sm" data-testid="portfolio-dialog">
           <DialogHeader>
-            <DialogTitle className="text-white">Ajouter au Portfolio</DialogTitle>
-            <DialogDescription className="text-purple-300">
+            <DialogTitle className="text-white font-heading">Ajouter au Portfolio</DialogTitle>
+            <DialogDescription className="text-[#737373]">
               {selectedCrypto?.name} ({selectedCrypto?.symbol.toUpperCase()})
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="space-y-2">
-              <Label className="text-purple-300">Quantité</Label>
+            <div>
+              <Label className="text-[10px] text-[#737373] uppercase tracking-widest">Quantite</Label>
               <Input
                 type="number"
                 value={portfolioAmount}
                 onChange={(e) => setPortfolioAmount(e.target.value)}
-                placeholder="Ex: 0.5"
-                className="bg-black/40 border-purple-500/30 text-white"
+                placeholder="0.5"
+                className="bg-[#111111] border-[#262626] text-white rounded-sm mt-2 font-mono"
                 step="0.00000001"
+                data-testid="portfolio-amount-input"
               />
             </div>
-            <div className="space-y-2">
-              <Label className="text-purple-300">Prix d'achat ({currency === "usd" ? "$" : "€"})</Label>
+            <div>
+              <Label className="text-[10px] text-[#737373] uppercase tracking-widest">
+                Prix d'achat ({currencySymbol})
+              </Label>
               <Input
                 type="number"
                 value={portfolioPurchasePrice}
                 onChange={(e) => setPortfolioPurchasePrice(e.target.value)}
-                placeholder="Ex: 50000"
-                className="bg-black/40 border-purple-500/30 text-white"
+                placeholder="50000"
+                className="bg-[#111111] border-[#262626] text-white rounded-sm mt-2 font-mono"
+                data-testid="portfolio-price-input"
               />
             </div>
           </div>
           <DialogFooter>
-            <Button onClick={addPortfolioItem} className="bg-purple-600 hover:bg-purple-700">
-              Ajouter au portfolio
+            <Button
+              onClick={addPortfolioItem}
+              className="bg-[#007AFF] hover:bg-[#0066DD] text-white rounded-sm font-body"
+              data-testid="add-portfolio-button"
+            >
+              Ajouter
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Footer */}
-      <div className="bg-black/30 backdrop-blur-sm border-t border-purple-500/30 mt-12">
-        <div className="container mx-auto px-4 py-6">
-          <p className="text-center text-purple-300 text-sm">
-            Données fournies par CoinGecko • Mise à jour automatique toutes les 60 secondes • ⭐ Favoris • 📈 Graphiques • 🔔 Alertes • 💼 Portfolio
+      <footer className="bg-[#0A0A0A] border-t border-[#262626] mt-12" data-testid="app-footer">
+        <div className="max-w-[1440px] mx-auto px-6 py-4">
+          <p className="text-center text-[#737373] text-xs font-mono">
+            CRYPTO PORTAL PRO &middot; Donnees CoinGecko &middot; Mise a jour auto 60s
           </p>
         </div>
-      </div>
+      </footer>
     </div>
   );
 }

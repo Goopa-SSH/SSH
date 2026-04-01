@@ -195,6 +195,43 @@ def fetch_market_chart(crypto_id: str, days: int = 7, currency: str = "usd"):
         raise HTTPException(status_code=500, detail=f"Error fetching chart data: {str(e)}")
 
 
+def fetch_global_data():
+    cache_key = "global_data"
+    cached = get_from_cache(cache_key)
+    if cached:
+        return cached
+    
+    try:
+        url = f"{COINGECKO_BASE_URL}/global"
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+        set_cache(cache_key, data)
+        return data
+    except requests.exceptions.RequestException as e:
+        logging.error(f"Error fetching global data: {e}")
+        raise HTTPException(status_code=500, detail=f"Error fetching global data: {str(e)}")
+
+
+def fetch_fear_greed():
+    cache_key = "fear_greed"
+    cached = get_from_cache(cache_key)
+    if cached:
+        return cached
+    
+    try:
+        url = "https://api.alternative.me/fng/"
+        params = {"limit": 1}
+        response = requests.get(url, params=params, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+        set_cache(cache_key, data)
+        return data
+    except requests.exceptions.RequestException as e:
+        logging.error(f"Error fetching fear & greed index: {e}")
+        raise HTTPException(status_code=500, detail=f"Error fetching fear & greed: {str(e)}")
+
+
 # API Routes
 @api_router.get("/")
 async def root():
@@ -327,6 +364,39 @@ async def get_crypto_chart(crypto_id: str, days: int = 7, currency: str = "usd")
         "days": days,
         "currency": currency,
         "prices": formatted_prices
+    }
+
+
+@api_router.get("/crypto/global")
+async def get_global_data():
+    """
+    Get global cryptocurrency market data
+    """
+    data = fetch_global_data()
+    gd = data.get("data", {})
+    return {
+        "total_market_cap": gd.get("total_market_cap", {}).get("usd", 0),
+        "total_volume": gd.get("total_volume", {}).get("usd", 0),
+        "market_cap_percentage": {
+            "btc": gd.get("market_cap_percentage", {}).get("btc", 0),
+            "eth": gd.get("market_cap_percentage", {}).get("eth", 0),
+        },
+        "market_cap_change_percentage_24h_usd": gd.get("market_cap_change_percentage_24h_usd", 0),
+        "active_cryptocurrencies": gd.get("active_cryptocurrencies", 0),
+    }
+
+
+@api_router.get("/crypto/fear-greed")
+async def get_fear_greed():
+    """
+    Get crypto Fear & Greed Index
+    """
+    data = fetch_fear_greed()
+    fng = data.get("data", [{}])[0]
+    return {
+        "value": int(fng.get("value", 0)),
+        "classification": fng.get("value_classification", "N/A"),
+        "timestamp": fng.get("timestamp", ""),
     }
 
 
