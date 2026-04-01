@@ -1,0 +1,72 @@
+{
+  "theme": "DARK",
+  "archetype": "Archetype 4 (Swiss & High-Contrast) + Archetype 2 (Performance Pro)",
+  "reasoning": "A premium crypto trading dashboard needs information clarity, high visibility for kinetic triggers (price changes), and a pro-grade technical feel to replace generic purple gradients. An obsidian background with stark, vibrant accents ensures data hierarchy.",
+  "colors": {
+    "background": "#050505",
+    "surface": "#0A0A0A",
+    "surface_hover": "#111111",
+    "border": "#262626",
+    "text_primary": "#FFFFFF",
+    "text_secondary": "#A3A3A3",
+    "text_muted": "#737373",
+    "primary": "#007AFF",
+    "positive": "#00FFAA",
+    "negative": "#FF3B30",
+    "warning": "#FFD60A",
+    "neutral": "#262626"
+  },
+  "typography": {
+    "font_family_headings": "Chivo",
+    "font_family_body": "IBM Plex Sans",
+    "font_family_mono": "JetBrains Mono",
+    "h1": "text-4xl sm:text-5xl font-black tracking-tighter",
+    "h2": "text-2xl sm:text-3xl font-bold tracking-tight",
+    "h3": "text-xl sm:text-2xl font-bold tracking-tight",
+    "h4": "text-lg sm:text-xl font-semibold",
+    "body": "text-base font-normal leading-relaxed",
+    "small": "text-sm font-medium",
+    "overline": "text-xs font-bold uppercase tracking-[0.2em]"
+  },
+  "spacing_and_layout": {
+    "grid_strategy": "MODE B: THE CONTROL ROOM GRID. Base Grid: grid-cols-1 md:grid-cols-3 lg:grid-cols-4. Gap: gap-4 or gap-6. Every pixel utilized. h-full on children.",
+    "container_padding": "p-6 or p-8 for large containers, p-4 for dense widgets",
+    "alignment": "Left-align paragraphs, inputs, and dense content. Right-align numeric columns in tables.",
+    "border_radius": "Sharp edges, rounded-none or max rounded-sm (4px)."
+  },
+  "components": {
+    "surface_strategy": "GRID BORDERS. Expose the skeleton. Container uses border-collapse layout style. Dashboard panels use flat solid backgrounds with 1px subtle borders (border-border), NO shadows by default.",
+    "headers": "Solid Background with a hard bottom border (#262626) if content cuts off, or Crystal Glass (backdrop-blur-xl bg-[#050505]/60) with 1px delicate inner stroke if content scrolls under.",
+    "buttons": "Flat, sharp edges. Primary CTA in Volt Blue (#007AFF) or White. High contrast on hover.",
+    "inputs": "Flat, 1px border. Focus ring 2px Volt Blue (ring-[#007AFF]).",
+    "charts": "Use Recharts. Minimalist grids, neon strokes for lines (Volt Blue, Acid Green), zero fill or extremely subtle gradient fills. Tooltips must be high-contrast with #050505 backgrounds."
+  },
+  "motion": {
+    "hover_states": "Slight brightness increase, borders turn lighter grey or brand color.",
+    "click_states": "scale-[0.98]",
+    "transitions": "transition-colors duration-200 ease-in-out"
+  },
+  "icons": {
+    "library": "lucide-react (dense dashboards) combined with standard SVG crypto icons.",
+    "style": "Regular weight, mono-colored."
+  },
+  "media": {
+    "image_urls": {
+      "user_avatar": {
+        "url": "https://images.pexels.com/photos/6918658/pexels-photo-6918658.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=150&w=150",
+        "description": "User avatar for the profile menu / portfolio section"
+      }
+    }
+  },
+  "instructions_to_main_agent": [
+    "Use pure HTML + Tailwind classes for the main grid structures. Avoid overusing standard Shadcn Card component wrapping; go flat, rectangular, and cardless with sharp edges.",
+    "Implement the Global Market Stats Bar as a dense, horizontal overline section at the very top, using the monospaced font.",
+    "For tables, implement strict alignment (right for numbers, left for text) and use JetBrains Mono for all numeric values, prices, and tickers.",
+    "Ensure all interactive elements have hover states with explicit text colors (e.g., hover:text-white) and hover:bg-[#111111].",
+    "Do NOT use generic purple gradients. Stick strictly to the stark Obsidian black base with bright Acid Green (#00FFAA) / Signal Red (#FF3B30) for market movements.",
+    "For the Market Heatmap (treemap), use varying opacities/shades of the positive (#00FFAA) and negative (#FF3B30) colors depending on performance percentage. Text inside must maintain APCA high contrast (use black text on the brightest green, white text on the deep red).",
+    "All interactive elements MUST include 'data-testid' attributes (e.g., 'data-testid=\"currency-toggle\"', 'data-testid=\"buy-button\"').",
+    "For Historical charts in the modal, use Recharts with a stark minimalist aesthetic, no grid lines or very faint #1A1A1A grid lines.",
+    "Install the required font families: Chivo, IBM Plex Sans, JetBrains Mono via Google Fonts or standard imports."
+  ]
+}
