@@ -5,56 +5,62 @@ Application web de suivi de cryptomonnaies en temps réel avec dashboard premium
 
 ## Core Features
 - Suivi en temps réel des prix (CoinGecko API)
-- Graphiques historiques des prix
+- Graphiques historiques des prix (AreaChart)
 - Système de favoris (localStorage)
 - Portfolio tracker avec P&L
 - Alertes de prix personnalisées
 - Convertisseur crypto-crypto
 - Toggle USD/EUR
-
-## Recent Improvements (2026-04-01)
-1. **Refonte UI/UX Premium** - Design obsidian noir (#050505), typographie Chivo/IBM Plex Sans/JetBrains Mono, bords nets, accents Volt Blue (#007AFF), Acid Green (#00FFAA), Signal Red (#FF3B30)
-2. **Statistiques Globales du Marché** - Barre ticker avec Fear & Greed Index (alternative.me API), Market Cap total, Volume 24h, Dominance BTC/ETH, cryptos actives
-3. **Heatmap du Marché** - Grille visuelle des performances 24h, cellules dimensionnées par capitalisation, colorées par variation
+- Statistiques globales (Market Cap, BTC/ETH dominance, Fear & Greed Index)
+- Heatmap du marché (grille visuelle des performances)
 
 ## Tech Stack
-- Frontend: React 19, Tailwind CSS, Shadcn/UI, Recharts, Lucide-react
-- Backend: FastAPI, Motor (MongoDB async), Requests
-- Database: MongoDB
-- APIs: CoinGecko (crypto data), alternative.me (Fear & Greed)
+React 19, Tailwind CSS, Shadcn/UI, Recharts, Lucide-react, FastAPI, Motor (MongoDB async), CoinGecko API, alternative.me API
 
-## Architecture
+## Architecture (post-refactoring 2026-04-02)
 ```
 /app/
 ├── backend/
-│   ├── server.py           # FastAPI + CoinGecko + MongoDB
-│   └── tests/
-│       └── test_crypto_api.py
+│   ├── server.py
+│   └── tests/test_crypto_api.py
 ├── frontend/src/
-│   ├── App.js              # Main dashboard
-│   ├── App.css             # Custom styles
-│   ├── index.css           # CSS variables
-│   └── components/
-│       ├── GlobalStatsBar.jsx
-│       ├── MarketHeatmap.jsx
-│       └── ui/             # Shadcn components
+│   ├── App.js (279 lines - slim orchestrator)
+│   ├── hooks/
+│   │   ├── useCryptoData.js (markets, trending, global, chart)
+│   │   ├── usePortfolio.js (CRUD)
+│   │   ├── useAlerts.js (CRUD)
+│   │   └── useFavorites.js (localStorage)
+│   ├── components/
+│   │   ├── GlobalStatsBar.jsx (stats ticker)
+│   │   ├── MarketHeatmap.jsx (treemap)
+│   │   ├── CryptoRow.jsx (market row)
+│   │   ├── ChartDialog.jsx (price chart modal)
+│   │   ├── AlertDialog.jsx (alert creation)
+│   │   ├── PortfolioDialog.jsx (portfolio add)
+│   │   ├── PortfolioManager.jsx (portfolio tab)
+│   │   ├── AlertsManager.jsx (alerts tab)
+│   │   ├── ConverterTab.jsx (converter)
+│   │   ├── TrendingTab.jsx (trending)
+│   │   ├── PriceChange.jsx (shared)
+│   │   └── ui/ (shadcn)
+│   └── utils/
+│       ├── formatters.js (number formatting)
+│       └── logger.js (conditional logging)
 ```
 
-## API Endpoints
-- GET /api/crypto/markets - Top 50 cryptos
-- GET /api/crypto/trending - Trending cryptos
-- GET /api/crypto/chart/{id} - Price chart data
-- GET /api/crypto/convert - Crypto conversion
-- GET /api/crypto/search - Search cryptos
-- GET /api/crypto/price/{id} - Detailed price
-- GET /api/crypto/global - Global market stats (NEW)
-- GET /api/crypto/fear-greed - Fear & Greed Index (NEW)
-- CRUD /api/portfolio - Portfolio management
-- CRUD /api/alerts - Price alerts management
+## Code Quality Fixes Applied (2026-04-02)
+- [x] Missing hook dependencies → useCallback + proper dep arrays
+- [x] Mutable default argument (server.py) → None + runtime init
+- [x] Massive component (919→279 lines) → extracted 11 components + 4 hooks
+- [x] Index as key → stable keys (skeleton-${i})
+- [x] Console statements → conditional logger utility
+- [x] Inline objects → extracted to constants
+- [x] use-toast.js deps → fixed to empty array
 
-## Known Limitations
-- CoinGecko free API rate limits (429 errors) - mitigated by 60s cache
-- No user authentication
+## API Endpoints
+- GET /api/crypto/markets, /trending, /chart/{id}, /convert, /search, /price/{id}
+- GET /api/crypto/global, /api/crypto/fear-greed
+- CRUD /api/portfolio, /api/alerts
 
 ## Backlog
 - P1: Graphiques en chandelier (candlestick)

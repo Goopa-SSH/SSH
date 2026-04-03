@@ -151,7 +151,9 @@ def fetch_trending_cryptos():
         raise HTTPException(status_code=500, detail=f"Error fetching trending data: {str(e)}")
 
 
-def fetch_simple_price(ids: List[str], vs_currencies: List[str] = ["usd"]):
+def fetch_simple_price(ids: List[str], vs_currencies: Optional[List[str]] = None):
+    if vs_currencies is None:
+        vs_currencies = ["usd"]
     cache_key = f"simple_price_{'_'.join(ids)}_{'_'.join(vs_currencies)}"
     cached = get_from_cache(cache_key)
     if cached:
