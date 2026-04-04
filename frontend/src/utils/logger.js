@@ -1,7 +1,7 @@
-const isDev = process.env.NODE_ENV !== "production";
+/* eslint-disable no-console */
+const noop = () => {};
 
-export const logError = (message, error) => {
-  if (isDev) {
-    console.error(message, error);
-  }
-};
+const devLogger = (message, error) => console.error(message, error);
+
+export const logError =
+  process.env.NODE_ENV !== "production" ? devLogger : noop;

@@ -197,7 +197,7 @@ class TestAlertsCRUD:
         assert data["crypto_id"] == payload["crypto_id"]
         assert data["target_price"] == payload["target_price"]
         assert data["condition"] == payload["condition"]
-        assert data["active"] == True
+        assert data["active"]
         assert "timestamp" in data
         
         self.created_ids.append(data["id"])

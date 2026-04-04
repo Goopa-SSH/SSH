@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast as sonnerToast } from "sonner";
 import { logError } from "@/utils/logger";
+import { ConversionResult } from "@/components/ConversionResult";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -20,6 +21,19 @@ const CRYPTO_OPTIONS = [
   { value: "dogecoin", label: "Dogecoin (DOGE)" },
 ];
 
+const CryptoSelect = ({ value, onChange, testId }) => (
+  <Select value={value} onValueChange={onChange}>
+    <SelectTrigger className="bg-[#111111] border-[#262626] text-white rounded-sm mt-2" data-testid={testId}>
+      <SelectValue />
+    </SelectTrigger>
+    <SelectContent className="bg-[#0A0A0A] border-[#262626]">
+      {CRYPTO_OPTIONS.map((opt) => (
+        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+      ))}
+    </SelectContent>
+  </Select>
+);
+
 export const ConverterTab = () => {
   const [from, setFrom] = useState("bitcoin");
   const [to, setTo] = useState("ethereum");
@@ -28,12 +42,12 @@ export const ConverterTab = () => {
 
   const handleConvert = useCallback(async () => {
     try {
-      const response = await axios.get(
+      const res = await axios.get(
         `${API}/crypto/convert?from_crypto=${from}&to_crypto=${to}&amount=${amount}`
       );
-      setResult(response.data);
-    } catch (error) {
-      logError("Error converting:", error);
+      setResult(res.data);
+    } catch (err) {
+      logError("Error converting:", err);
       sonnerToast.error("Erreur de conversion");
     }
   }, [from, to, amount]);
@@ -46,16 +60,7 @@ export const ConverterTab = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
           <Label className="text-[10px] text-[#737373] uppercase tracking-widest">De</Label>
-          <Select value={from} onValueChange={setFrom}>
-            <SelectTrigger className="bg-[#111111] border-[#262626] text-white rounded-sm mt-2" data-testid="convert-from">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className="bg-[#0A0A0A] border-[#262626]">
-              {CRYPTO_OPTIONS.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <CryptoSelect value={from} onChange={setFrom} testId="convert-from" />
         </div>
         <div>
           <Label className="text-[10px] text-[#737373] uppercase tracking-widest">Montant</Label>
@@ -71,16 +76,7 @@ export const ConverterTab = () => {
         </div>
         <div>
           <Label className="text-[10px] text-[#737373] uppercase tracking-widest">Vers</Label>
-          <Select value={to} onValueChange={setTo}>
-            <SelectTrigger className="bg-[#111111] border-[#262626] text-white rounded-sm mt-2" data-testid="convert-to">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className="bg-[#0A0A0A] border-[#262626]">
-              {CRYPTO_OPTIONS.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <CryptoSelect value={to} onChange={setTo} testId="convert-to" />
         </div>
       </div>
 
@@ -92,23 +88,7 @@ export const ConverterTab = () => {
         Convertir
       </Button>
 
-      {result && (
-        <div className="mt-6 bg-[#111111] border border-[#262626] rounded-sm p-6 text-center" data-testid="conversion-result">
-          <p className="text-[10px] text-[#737373] uppercase tracking-widest mb-2">Resultat</p>
-          <p className="font-mono font-bold text-3xl text-white">{result.result.toFixed(8)}</p>
-          <p className="text-[#A3A3A3] text-sm mt-2 font-mono">
-            {amount} {from.toUpperCase()} = {result.result.toFixed(8)} {to.toUpperCase()}
-          </p>
-          <div className="flex justify-center gap-6 mt-4 pt-4 border-t border-[#262626]">
-            <span className="text-xs text-[#737373] font-mono">
-              {from.toUpperCase()}: ${result.from_price_usd?.toLocaleString()}
-            </span>
-            <span className="text-xs text-[#737373] font-mono">
-              {to.toUpperCase()}: ${result.to_price_usd?.toLocaleString()}
-            </span>
-          </div>
-        </div>
-      )}
+      {result && <ConversionResult result={result} amount={amount} from={from} to={to} />}
     </div>
   );
 };
