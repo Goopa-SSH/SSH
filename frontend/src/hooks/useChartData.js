@@ -6,6 +6,7 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 export function useChartData(currency) {
   const [chartData, setChartData] = useState([]);
+  const [ohlcData, setOhlcData] = useState([]);
   const [chartDays, setChartDays] = useState(7);
 
   const fetchChart = useCallback(
@@ -30,5 +31,19 @@ export function useChartData(currency) {
     [currency]
   );
 
-  return { chartData, chartDays, setChartDays, fetchChart };
+  const fetchOhlc = useCallback(
+    async (cryptoId, days) => {
+      try {
+        const res = await axios.get(
+          `${API}/crypto/ohlc/${cryptoId}?days=${days}&currency=${currency}`
+        );
+        setOhlcData(res.data.candles || []);
+      } catch (err) {
+        logError("Error fetching OHLC data:", err);
+      }
+    },
+    [currency]
+  );
+
+  return { chartData, ohlcData, chartDays, setChartDays, fetchChart, fetchOhlc };
 }

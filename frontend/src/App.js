@@ -19,6 +19,7 @@ import { AlertsManager } from "@/components/AlertsManager";
 import { ConverterTab } from "@/components/ConverterTab";
 import { TrendingTab } from "@/components/TrendingTab";
 import { SummaryCards } from "@/components/SummaryCards";
+import { AffiliateBar } from "@/components/AffiliateBar";
 
 import { useMarketData } from "@/hooks/useMarketData";
 import { useGlobalStats } from "@/hooks/useGlobalStats";
@@ -26,6 +27,7 @@ import { useChartData } from "@/hooks/useChartData";
 import { usePortfolio } from "@/hooks/usePortfolio";
 import { useAlerts } from "@/hooks/useAlerts";
 import { useFavorites } from "@/hooks/useFavorites";
+import { useNotifications } from "@/hooks/useNotifications";
 
 const CURRENCIES = [
   { value: "usd", label: "USD $", symbol: "$" },
@@ -70,16 +72,18 @@ function App() {
   const [showChartDialog, setShowChartDialog] = useState(false);
   const [showAlertDialog, setShowAlertDialog] = useState(false);
   const [showPortfolioDialog, setShowPortfolioDialog] = useState(false);
+  const [chartMode, setChartMode] = useState("line");
 
   const currencySymbol = getCurrencySymbol(currency);
 
   // Data hooks
   const { cryptoData, trendingData, loading, lastUpdate, fetchMarkets } = useMarketData(currency);
   const { globalStats, fearGreed } = useGlobalStats();
-  const { chartData, chartDays, setChartDays, fetchChart } = useChartData(currency);
+  const { chartData, ohlcData, chartDays, setChartDays, fetchChart, fetchOhlc } = useChartData(currency);
   const { portfolio, addPortfolioItem, deletePortfolioItem } = usePortfolio();
   const { alerts, addPriceAlert, deleteAlert } = useAlerts();
   const { favorites, toggleFavorite } = useFavorites();
+  useNotifications();
 
   // Derived data
   const filteredCryptoData = useMemo(
@@ -119,18 +123,45 @@ function App() {
   const openChart = useCallback(
     (crypto) => {
       setSelectedCrypto(crypto);
-      fetchChart(crypto.id, chartDays);
+      // Fetch active type immediately, other type after delay (avoids rate limit)
+      if (chartMode === "candle") {
+        fetchOhlc(crypto.id, chartDays);
+        setTimeout(() => fetchChart(crypto.id, chartDays), 2500);
+      } else {
+        fetchChart(crypto.id, chartDays);
+        setTimeout(() => fetchOhlc(crypto.id, chartDays), 2500);
+      }
       setShowChartDialog(true);
     },
-    [chartDays, fetchChart, setSelectedCrypto, setShowChartDialog]
+    [chartDays, chartMode, fetchChart, fetchOhlc, setSelectedCrypto, setShowChartDialog]
   );
 
   const handleChartDaysChange = useCallback(
     (days) => {
       setChartDays(days);
-      if (selectedCrypto) fetchChart(selectedCrypto.id, days);
+      if (selectedCrypto) {
+        if (chartMode === "candle") {
+          fetchOhlc(selectedCrypto.id, days);
+        } else {
+          fetchChart(selectedCrypto.id, days);
+        }
+      }
     },
-    [selectedCrypto, fetchChart, setChartDays]
+    [selectedCrypto, chartMode, fetchChart, fetchOhlc, setChartDays]
+  );
+
+  const handleChartModeChange = useCallback(
+    (mode) => {
+      setChartMode(mode);
+      if (selectedCrypto) {
+        if (mode === "candle") {
+          fetchOhlc(selectedCrypto.id, chartDays);
+        } else {
+          fetchChart(selectedCrypto.id, chartDays);
+        }
+      }
+    },
+    [selectedCrypto, chartDays, fetchChart, fetchOhlc]
   );
 
   const openAlertDialog = useCallback(
@@ -270,9 +301,14 @@ function App() {
           <TabsContent value="alerts"><AlertsManager alerts={alerts} currencySymbol={currencySymbol} onDelete={deleteAlert} /></TabsContent>
           <TabsContent value="converter"><ConverterTab /></TabsContent>
         </Tabs>
+
+        {/* Coinbase Affiliate */}
+        <div className="mt-6">
+          <AffiliateBar />
+        </div>
       </div>
 
-      <ChartDialog open={showChartDialog} onOpenChange={setShowChartDialog} selectedCrypto={selectedCrypto} chartData={chartData} chartDays={chartDays} onChangeDays={handleChartDaysChange} />
+      <ChartDialog open={showChartDialog} onOpenChange={setShowChartDialog} selectedCrypto={selectedCrypto} chartData={chartData} ohlcData={ohlcData} chartDays={chartDays} onChangeDays={handleChartDaysChange} chartMode={chartMode} onChangeMode={handleChartModeChange} />
       <AlertDialog open={showAlertDialog} onOpenChange={setShowAlertDialog} selectedCrypto={selectedCrypto} currencySymbol={currencySymbol} onSubmit={addPriceAlert} />
       <PortfolioDialog open={showPortfolioDialog} onOpenChange={setShowPortfolioDialog} selectedCrypto={selectedCrypto} currencySymbol={currencySymbol} onSubmit={addPortfolioItem} />
 

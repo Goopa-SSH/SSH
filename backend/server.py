@@ -234,6 +234,25 @@ def fetch_fear_greed():
         raise HTTPException(status_code=500, detail=f"Error fetching fear & greed: {str(e)}")
 
 
+def fetch_ohlc_data(crypto_id: str, days: int = 7, currency: str = "usd"):
+    cache_key = f"ohlc_{crypto_id}_{days}_{currency}"
+    cached = get_from_cache(cache_key)
+    if cached:
+        return cached
+    
+    try:
+        url = f"{COINGECKO_BASE_URL}/coins/{crypto_id}/ohlc"
+        params = {"vs_currency": currency, "days": days}
+        response = requests.get(url, params=params, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+        set_cache(cache_key, data)
+        return data
+    except requests.exceptions.RequestException as e:
+        logging.error(f"Error fetching OHLC data: {e}")
+        raise HTTPException(status_code=500, detail=f"Error fetching OHLC data: {str(e)}")
+
+
 # API Routes
 @api_router.get("/")
 async def root():
@@ -400,6 +419,59 @@ async def get_fear_greed():
         "classification": fng.get("value_classification", "N/A"),
         "timestamp": fng.get("timestamp", ""),
     }
+
+
+@api_router.get("/crypto/ohlc/{crypto_id}")
+async def get_crypto_ohlc(crypto_id: str, days: int = 7, currency: str = "usd"):
+    """
+    Get OHLC candlestick data for a cryptocurrency
+    """
+    data = fetch_ohlc_data(crypto_id, days, currency)
+    formatted = []
+    for candle in data:
+        formatted.append({
+            "timestamp": candle[0],
+            "open": candle[1],
+            "high": candle[2],
+            "low": candle[3],
+            "close": candle[4],
+        })
+    return {"id": crypto_id, "days": days, "currency": currency, "candles": formatted}
+
+
+@api_router.get("/alerts/check")
+async def check_alerts():
+    """
+    Check alerts against current prices and return triggered alerts
+    """
+    alerts_list = await db.alerts.find({}, {"_id": 0}).to_list(length=100)
+    if not alerts_list:
+        return {"triggered": []}
+
+    crypto_ids = list({a["crypto_id"] for a in alerts_list})
+    try:
+        prices = fetch_simple_price(crypto_ids, ["usd"])
+    except Exception:
+        return {"triggered": []}
+
+    triggered = []
+    for alert in alerts_list:
+        cid = alert["crypto_id"]
+        if cid not in prices:
+            continue
+        current = prices[cid].get("usd", 0)
+        target = alert["target_price"]
+        cond = alert["condition"]
+        if (cond == "above" and current >= target) or (cond == "below" and current <= target):
+            triggered.append({
+                "id": alert["id"],
+                "crypto_name": alert.get("crypto_name", cid),
+                "crypto_symbol": alert.get("crypto_symbol", ""),
+                "condition": cond,
+                "target_price": target,
+                "current_price": current,
+            })
+    return {"triggered": triggered}
 
 
 # Portfolio and Alerts Models
