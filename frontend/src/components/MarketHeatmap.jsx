@@ -76,12 +76,14 @@ const Legend = () => (
   </div>
 );
 
+const SYMBOLS = { usd: "$", eur: "\u20AC", gbp: "\u00A3", jpy: "\u00A5", chf: "Fr" };
+
 export const MarketHeatmap = ({ cryptoData, currency, onCryptoClick }) => {
   if (!cryptoData || cryptoData.length === 0) {
     return <div className="text-center py-12 text-[#737373]">Chargement des donnees...</div>;
   }
 
-  const currencySymbol = currency === "usd" ? "$" : "\u20AC";
+  const currencySymbol = SYMBOLS[currency] || "$";
 
   return (
     <div data-testid="market-heatmap">

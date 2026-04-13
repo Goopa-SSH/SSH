@@ -27,6 +27,17 @@ import { usePortfolio } from "@/hooks/usePortfolio";
 import { useAlerts } from "@/hooks/useAlerts";
 import { useFavorites } from "@/hooks/useFavorites";
 
+const CURRENCIES = [
+  { value: "usd", label: "USD $", symbol: "$" },
+  { value: "eur", label: "EUR \u20AC", symbol: "\u20AC" },
+  { value: "gbp", label: "GBP \u00A3", symbol: "\u00A3" },
+  { value: "jpy", label: "JPY \u00A5", symbol: "\u00A5" },
+  { value: "chf", label: "CHF Fr", symbol: "Fr" },
+];
+
+const getCurrencySymbol = (code) =>
+  CURRENCIES.find((c) => c.value === code)?.symbol || "$";
+
 const TAB_LABELS = {
   markets: "Marches",
   heatmap: "Heatmap",
@@ -60,7 +71,7 @@ function App() {
   const [showAlertDialog, setShowAlertDialog] = useState(false);
   const [showPortfolioDialog, setShowPortfolioDialog] = useState(false);
 
-  const currencySymbol = currency === "usd" ? "$" : "\u20AC";
+  const currencySymbol = getCurrencySymbol(currency);
 
   // Data hooks
   const { cryptoData, trendingData, loading, lastUpdate, fetchMarkets } = useMarketData(currency);
@@ -167,12 +178,13 @@ function App() {
           </div>
           <div className="flex items-center gap-4">
             <Select value={currency} onValueChange={setCurrency}>
-              <SelectTrigger className="w-24 bg-[#111111] border-[#262626] text-white text-xs rounded-sm" data-testid="currency-toggle">
+              <SelectTrigger className="w-28 bg-[#111111] border-[#262626] text-white text-xs rounded-sm" data-testid="currency-toggle">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="bg-[#0A0A0A] border-[#262626]">
-                <SelectItem value="usd">USD $</SelectItem>
-                <SelectItem value="eur">EUR &euro;</SelectItem>
+                {CURRENCIES.map((c) => (
+                  <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
             <div className="text-right hidden sm:block">
