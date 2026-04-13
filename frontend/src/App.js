@@ -20,6 +20,7 @@ import { ConverterTab } from "@/components/ConverterTab";
 import { TrendingTab } from "@/components/TrendingTab";
 import { SummaryCards } from "@/components/SummaryCards";
 import { AffiliateBar } from "@/components/AffiliateBar";
+import { CryptoComparator } from "@/components/CryptoComparator";
 
 import { useMarketData } from "@/hooks/useMarketData";
 import { useGlobalStats } from "@/hooks/useGlobalStats";
@@ -43,6 +44,7 @@ const getCurrencySymbol = (code) =>
 const TAB_LABELS = {
   markets: "Marches",
   heatmap: "Heatmap",
+  compare: "Comparer",
   favorites: "Favoris",
   trending: "Tendances",
   portfolio: "Portfolio",
@@ -275,6 +277,10 @@ function App() {
 
           <TabsContent value="heatmap" data-testid="heatmap-tab">
             <MarketHeatmap cryptoData={cryptoData} currency={currency} onCryptoClick={openChart} />
+          </TabsContent>
+
+          <TabsContent value="compare" data-testid="compare-tab">
+            <CryptoComparator cryptoData={cryptoData} currencySymbol={currencySymbol} />
           </TabsContent>
 
           <TabsContent value="favorites" data-testid="favorites-tab">

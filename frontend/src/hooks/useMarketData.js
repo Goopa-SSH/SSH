@@ -35,12 +35,16 @@ export function useMarketData(currency) {
 
   useEffect(() => {
     fetchMarkets();
-    fetchTrending();
+    // Stagger trending fetch to avoid parallel CoinGecko hits
+    const trendTimer = setTimeout(fetchTrending, 2000);
     const id = setInterval(() => {
       fetchMarkets();
-      fetchTrending();
+      setTimeout(fetchTrending, 2000);
     }, 60000);
-    return () => clearInterval(id);
+    return () => {
+      clearTimeout(trendTimer);
+      clearInterval(id);
+    };
   }, [fetchMarkets, fetchTrending]);
 
   return { cryptoData, trendingData, loading, lastUpdate, fetchMarkets };

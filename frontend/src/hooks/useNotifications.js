@@ -52,9 +52,13 @@ export function useNotifications() {
 
   useEffect(() => {
     requestPermission();
-    checkAlerts();
+    // Stagger alert check to avoid CoinGecko rate limit cascade
+    const timer = setTimeout(checkAlerts, 5000);
     const id = setInterval(checkAlerts, 60000);
-    return () => clearInterval(id);
+    return () => {
+      clearTimeout(timer);
+      clearInterval(id);
+    };
   }, [requestPermission, checkAlerts]);
 
   return { requestPermission, permissionGranted: permissionRef.current === "granted" };

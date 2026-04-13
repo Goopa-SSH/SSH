@@ -27,13 +27,18 @@ export function useGlobalStats() {
   }, []);
 
   useEffect(() => {
-    fetchGlobal();
-    fetchFearGreed();
+    // Stagger requests to avoid CoinGecko rate limit
+    const globalTimer = setTimeout(fetchGlobal, 1000);
+    const fgTimer = setTimeout(fetchFearGreed, 3000);
     const id = setInterval(() => {
       fetchGlobal();
-      fetchFearGreed();
+      setTimeout(fetchFearGreed, 2000);
     }, 60000);
-    return () => clearInterval(id);
+    return () => {
+      clearTimeout(globalTimer);
+      clearTimeout(fgTimer);
+      clearInterval(id);
+    };
   }, [fetchGlobal, fetchFearGreed]);
 
   return { globalStats, fearGreed };

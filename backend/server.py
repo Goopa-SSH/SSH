@@ -33,7 +33,7 @@ COINGECKO_BASE_URL = "https://api.coingecko.com/api/v3"
 
 # Cache for API responses (simple in-memory cache)
 cache = {}
-CACHE_DURATION = 60  # 60 seconds
+CACHE_DURATION = 90  # 90 seconds
 
 
 # Define Models
@@ -78,6 +78,14 @@ def get_from_cache(key: str):
     return None
 
 
+def get_stale_cache(key: str):
+    """Return cached data even if expired — used as fallback on 429."""
+    if key in cache:
+        _, data = cache[key]
+        return data
+    return None
+
+
 def set_cache(key: str, data):
     cache[key] = (time.time(), data)
 
@@ -99,13 +107,22 @@ def fetch_top_cryptos(limit: int = 50, currency: str = "usd"):
             "sparkline": False
         }
         response = requests.get(url, params=params, timeout=10)
+        if response.status_code == 429:
+            stale = get_stale_cache(cache_key)
+            if stale:
+                logging.warning("CoinGecko 429: returning stale cache for top_cryptos")
+                return stale
+            return []
         response.raise_for_status()
         data = response.json()
         set_cache(cache_key, data)
         return data
     except requests.exceptions.RequestException as e:
         logging.error(f"Error fetching top cryptos: {e}")
-        raise HTTPException(status_code=500, detail=f"Error fetching crypto data: {str(e)}")
+        stale = get_stale_cache(cache_key)
+        if stale:
+            return stale
+        return []
 
 
 def fetch_crypto_price(crypto_id: str):
@@ -124,12 +141,22 @@ def fetch_crypto_price(crypto_id: str):
             "developer_data": False
         }
         response = requests.get(url, params=params, timeout=10)
+        if response.status_code == 429:
+            stale = get_stale_cache(cache_key)
+            if stale:
+                return stale
+            raise HTTPException(status_code=429, detail="Rate limited by CoinGecko")
         response.raise_for_status()
         data = response.json()
         set_cache(cache_key, data)
         return data
+    except HTTPException:
+        raise
     except requests.exceptions.RequestException as e:
         logging.error(f"Error fetching crypto price for {crypto_id}: {e}")
+        stale = get_stale_cache(cache_key)
+        if stale:
+            return stale
         raise HTTPException(status_code=500, detail=f"Error fetching crypto data: {str(e)}")
 
 
@@ -142,13 +169,21 @@ def fetch_trending_cryptos():
     try:
         url = f"{COINGECKO_BASE_URL}/search/trending"
         response = requests.get(url, timeout=10)
+        if response.status_code == 429:
+            stale = get_stale_cache(cache_key)
+            if stale:
+                return stale
+            return {"coins": []}
         response.raise_for_status()
         data = response.json()
         set_cache(cache_key, data)
         return data
     except requests.exceptions.RequestException as e:
         logging.error(f"Error fetching trending cryptos: {e}")
-        raise HTTPException(status_code=500, detail=f"Error fetching trending data: {str(e)}")
+        stale = get_stale_cache(cache_key)
+        if stale:
+            return stale
+        return {"coins": []}
 
 
 def fetch_simple_price(ids: List[str], vs_currencies: Optional[List[str]] = None):
@@ -166,13 +201,21 @@ def fetch_simple_price(ids: List[str], vs_currencies: Optional[List[str]] = None
             "vs_currencies": ",".join(vs_currencies)
         }
         response = requests.get(url, params=params, timeout=10)
+        if response.status_code == 429:
+            stale = get_stale_cache(cache_key)
+            if stale:
+                return stale
+            return {}
         response.raise_for_status()
         data = response.json()
         set_cache(cache_key, data)
         return data
     except requests.exceptions.RequestException as e:
         logging.error(f"Error fetching simple price: {e}")
-        raise HTTPException(status_code=500, detail=f"Error fetching price data: {str(e)}")
+        stale = get_stale_cache(cache_key)
+        if stale:
+            return stale
+        return {}
 
 
 def fetch_market_chart(crypto_id: str, days: int = 7, currency: str = "usd"):
@@ -188,13 +231,21 @@ def fetch_market_chart(crypto_id: str, days: int = 7, currency: str = "usd"):
             "days": days
         }
         response = requests.get(url, params=params, timeout=10)
+        if response.status_code == 429:
+            stale = get_stale_cache(cache_key)
+            if stale:
+                return stale
+            return {"prices": []}
         response.raise_for_status()
         data = response.json()
         set_cache(cache_key, data)
         return data
     except requests.exceptions.RequestException as e:
         logging.error(f"Error fetching market chart: {e}")
-        raise HTTPException(status_code=500, detail=f"Error fetching chart data: {str(e)}")
+        stale = get_stale_cache(cache_key)
+        if stale:
+            return stale
+        return {"prices": []}
 
 
 def fetch_global_data():
@@ -206,13 +257,21 @@ def fetch_global_data():
     try:
         url = f"{COINGECKO_BASE_URL}/global"
         response = requests.get(url, timeout=10)
+        if response.status_code == 429:
+            stale = get_stale_cache(cache_key)
+            if stale:
+                return stale
+            return {"data": {}}
         response.raise_for_status()
         data = response.json()
         set_cache(cache_key, data)
         return data
     except requests.exceptions.RequestException as e:
         logging.error(f"Error fetching global data: {e}")
-        raise HTTPException(status_code=500, detail=f"Error fetching global data: {str(e)}")
+        stale = get_stale_cache(cache_key)
+        if stale:
+            return stale
+        return {"data": {}}
 
 
 def fetch_fear_greed():
@@ -225,13 +284,21 @@ def fetch_fear_greed():
         url = "https://api.alternative.me/fng/"
         params = {"limit": 1}
         response = requests.get(url, params=params, timeout=10)
+        if response.status_code == 429:
+            stale = get_stale_cache(cache_key)
+            if stale:
+                return stale
+            return {"data": [{}]}
         response.raise_for_status()
         data = response.json()
         set_cache(cache_key, data)
         return data
     except requests.exceptions.RequestException as e:
         logging.error(f"Error fetching fear & greed index: {e}")
-        raise HTTPException(status_code=500, detail=f"Error fetching fear & greed: {str(e)}")
+        stale = get_stale_cache(cache_key)
+        if stale:
+            return stale
+        return {"data": [{}]}
 
 
 def fetch_ohlc_data(crypto_id: str, days: int = 7, currency: str = "usd"):
@@ -244,13 +311,21 @@ def fetch_ohlc_data(crypto_id: str, days: int = 7, currency: str = "usd"):
         url = f"{COINGECKO_BASE_URL}/coins/{crypto_id}/ohlc"
         params = {"vs_currency": currency, "days": days}
         response = requests.get(url, params=params, timeout=10)
+        if response.status_code == 429:
+            stale = get_stale_cache(cache_key)
+            if stale:
+                return stale
+            return []
         response.raise_for_status()
         data = response.json()
         set_cache(cache_key, data)
         return data
     except requests.exceptions.RequestException as e:
         logging.error(f"Error fetching OHLC data: {e}")
-        raise HTTPException(status_code=500, detail=f"Error fetching OHLC data: {str(e)}")
+        stale = get_stale_cache(cache_key)
+        if stale:
+            return stale
+        return []
 
 
 # API Routes
