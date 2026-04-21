@@ -1,13 +1,12 @@
 # Crypto Portal Pro — PRD
 
 ## Problem Statement
-Application SaaS de suivi crypto en temps réel avec données CoinGecko, gestion de portfolio manuel, alertes de prix, et outils d'analyse de marché.
+Application SaaS de suivi crypto en temps réel avec données CoinGecko, gestion de portfolio, alertes de prix, comparateur, et outils d'analyse de marché.
 
 ## Architecture
 - **Frontend**: React + Tailwind CSS + Shadcn/UI
 - **Backend**: FastAPI + MongoDB (Motor async)
 - **APIs externes**: CoinGecko (données marché), Alternative.me (Fear & Greed Index)
-- **Stack path**: `/app/frontend/src/` et `/app/backend/server.py`
 
 ## Core Requirements
 1. Dashboard avec top 50 cryptos, prix en temps réel, variations 24h
@@ -21,9 +20,11 @@ Application SaaS de suivi crypto en temps réel avec données CoinGecko, gestion
 9. Comparateur de cryptos côte à côte (2-3 cryptos)
 10. Bannière d'affiliation Coinbase
 11. Statistiques globales du marché (market cap, volume, dominances, Fear & Greed)
+12. Export portfolio CSV/PDF
+13. Mode sombre/clair toggle
 
 ## Implemented Features (as of April 2026)
-- [x] Dashboard avec 50 cryptos en temps réel
+- [x] Dashboard 50 cryptos en temps réel
 - [x] Multi-devises (USD, EUR, GBP, JPY, CHF)
 - [x] Heatmap du marché
 - [x] Graphiques candlestick + ligne
@@ -31,38 +32,41 @@ Application SaaS de suivi crypto en temps réel avec données CoinGecko, gestion
 - [x] Alertes de prix avec notifications navigateur
 - [x] Convertisseur de cryptos
 - [x] Tendances (trending)
-- [x] Comparateur de cryptos côte à côte (BTC vs ETH vs SOL etc.)
+- [x] Comparateur de cryptos côte à côte
 - [x] Bannière Coinbase
 - [x] Stats globales + Fear & Greed Index
 - [x] Refactoring modulaire (composants + hooks)
 - [x] Rate limit resilience (stale cache fallback, staggered requests)
+- [x] Export portfolio CSV/PDF
+- [x] Mode sombre/clair toggle (persiste dans localStorage)
 
 ## Prioritized Backlog
 ### P0
-- [ ] Intégration API Coinbase (synchronisation portfolio réel) — EN ATTENTE des clés API utilisateur
+- [ ] Intégration API Coinbase (portfolio réel) — EN ATTENTE clé ECDSA de l'utilisateur
 
 ### P2
-- [ ] Export portfolio CSV/PDF
-- [ ] Mode sombre/clair toggle
+- Toutes les tâches P2 complétées
 
 ## Key API Endpoints
-- `GET /api/crypto/markets` — Top cryptos par market cap
-- `GET /api/crypto/ohlc/{crypto_id}` — Données OHLC candlestick
-- `GET /api/crypto/global` — Stats globales du marché
-- `GET /api/crypto/fear-greed` — Index Fear & Greed
-- `GET /api/crypto/trending` — Cryptos tendances
-- `GET /api/crypto/convert` — Conversion entre cryptos
-- `GET /api/crypto/chart/{crypto_id}` — Historique des prix
-- `GET /api/crypto/search` — Recherche de cryptos
-- `GET /api/alerts/check` — Vérification des alertes
+- `GET /api/crypto/markets` — Top cryptos
+- `GET /api/crypto/ohlc/{crypto_id}` — OHLC candlestick
+- `GET /api/crypto/global` — Stats globales
+- `GET /api/crypto/fear-greed` — Fear & Greed
+- `GET /api/crypto/trending` — Tendances
+- `GET /api/crypto/convert` — Conversion
+- `GET /api/crypto/chart/{crypto_id}` — Historique prix
+- `GET /api/crypto/search` — Recherche
+- `GET /api/alerts/check` — Vérification alertes
+- `GET /api/portfolio/export/csv` — Export CSV
+- `GET /api/portfolio/export/pdf` — Export PDF
 - CRUD: `/api/portfolio`, `/api/alerts`
 
 ## DB Schema
-- `portfolio`: `{id (UUID), crypto_id, crypto_name, crypto_symbol, amount, purchase_price, timestamp}`
-- `alerts`: `{id (UUID), crypto_id, crypto_name, crypto_symbol, target_price, condition, active, timestamp}`
+- `portfolio`: `{id, crypto_id, crypto_name, crypto_symbol, amount, purchase_price, timestamp}`
+- `alerts`: `{id, crypto_id, crypto_name, crypto_symbol, target_price, condition, active, timestamp}`
 
 ## Technical Notes
-- CoinGecko free tier: ~10-30 req/min. Backend implements 90s cache + stale fallback on 429
-- Frontend staggers API calls (0s, 1s, 2s, 3s, 5s delays) to avoid rate cascades
-- React hooks follow exhaustive-deps rules
-- SVG-based candlestick chart rendering (fixed-pixel approach)
+- CoinGecko free tier: ~10-30 req/min. Backend: 90s cache + stale fallback on 429
+- Frontend staggers API calls (0s, 1s, 2s, 3s, 5s delays)
+- Theme system: CSS custom properties, `data-theme` on html, persisted in localStorage
+- PDF export via reportlab, CSV via stdlib
