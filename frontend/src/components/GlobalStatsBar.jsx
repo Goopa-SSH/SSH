@@ -16,7 +16,7 @@ const getFngColor = (val) => {
   return "#00FFAA";
 };
 
-const Divider = () => <div className="w-px h-5 bg-[#262626] shrink-0" />;
+const Divider = () => <div className="w-px h-5 bg-[var(--border-color)] shrink-0" />;
 
 const FearGreedBadge = ({ fearGreed }) => {
   const color = getFngColor(fearGreed.value);
@@ -36,7 +36,7 @@ const FearGreedBadge = ({ fearGreed }) => {
         {fearGreed.value}
       </div>
       <div className="text-[11px] leading-tight">
-        <span className="text-[#737373] uppercase tracking-widest text-[10px]">Fear & Greed</span>
+        <span className="text-[var(--text-muted)] uppercase tracking-widest text-[10px]">Fear & Greed</span>
         <br />
         <span className="font-mono font-semibold" style={{ color }}>
           {fearGreed.classification}
@@ -48,10 +48,10 @@ const FearGreedBadge = ({ fearGreed }) => {
 
 const StatItem = ({ label, value, isChange, positive }) => (
   <div className="flex items-center gap-2 shrink-0">
-    <span className="text-[#737373] text-[10px] uppercase tracking-widest font-body">{label}</span>
+    <span className="text-[var(--text-muted)] text-[10px] uppercase tracking-widest font-body">{label}</span>
     <span
       className={`font-mono text-xs font-semibold ${
-        isChange ? (positive ? "text-[#00FFAA]" : "text-[#FF3B30]") : "text-white"
+        isChange ? (positive ? "text-[#00FFAA]" : "text-[#FF3B30]") : "text-[var(--text-primary)]"
       }`}
     >
       {isChange &&
@@ -78,7 +78,7 @@ export const GlobalStatsBar = ({ globalStats, fearGreed }) => {
   ];
 
   return (
-    <div className="bg-[#0A0A0A] border-b border-[#262626] overflow-hidden" data-testid="global-stats-bar">
+    <div className="bg-[var(--bg-secondary)] border-b border-[var(--border-color)] overflow-hidden" data-testid="global-stats-bar">
       <div className="flex items-center h-9 px-4 gap-6 overflow-x-auto">
         {fearGreed && <FearGreedBadge fearGreed={fearGreed} />}
         <Divider />

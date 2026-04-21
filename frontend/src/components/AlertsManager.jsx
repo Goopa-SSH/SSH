@@ -1,19 +1,19 @@
 import { Bell, Trash2, Activity } from "lucide-react";
 
 export const AlertsManager = ({ alerts, currencySymbol, onDelete }) => (
-  <div className="bg-[#0A0A0A] border border-[#262626] rounded-sm" data-testid="alerts-tab">
-    <div className="p-4 border-b border-[#262626]">
-      <p className="font-heading font-bold text-white">Alertes de Prix</p>
-      <p className="text-[#737373] text-sm mt-1">
+  <div className="bg-[var(--card-bg)] border border-[var(--border-color)] rounded-sm" data-testid="alerts-tab">
+    <div className="p-4 border-b border-[var(--border-color)]">
+      <p className="font-heading font-bold text-[var(--text-primary)]">Alertes de Prix</p>
+      <p className="text-[var(--text-muted)] text-sm mt-1">
         Notifications quand un prix atteint un seuil
       </p>
     </div>
 
     {alerts.length === 0 ? (
       <div className="p-16 text-center">
-        <Bell className="w-12 h-12 mx-auto text-[#262626] mb-4" />
-        <p className="text-white font-heading font-bold">Aucune alerte</p>
-        <p className="text-[#737373] text-sm mt-2">
+        <Bell className="w-12 h-12 mx-auto text-[var(--border-color)] mb-4" />
+        <p className="text-[var(--text-primary)] font-heading font-bold">Aucune alerte</p>
+        <p className="text-[var(--text-muted)] text-sm mt-2">
           Creez des alertes depuis la liste des marches
         </p>
       </div>
@@ -22,7 +22,7 @@ export const AlertsManager = ({ alerts, currencySymbol, onDelete }) => (
         {alerts.map((alert) => (
           <div
             key={alert.id}
-            className="flex items-center gap-4 px-4 py-3 border-b border-[#262626] hover:bg-[#111111] transition-colors"
+            className="flex items-center gap-4 px-4 py-3 border-b border-[var(--border-color)] hover:bg-[var(--hover-bg)] transition-colors"
             data-testid={`alert-item-${alert.id}`}
           >
             <Activity
@@ -30,10 +30,10 @@ export const AlertsManager = ({ alerts, currencySymbol, onDelete }) => (
               className={alert.condition === "above" ? "text-[#00FFAA]" : "text-[#FF3B30]"}
             />
             <div className="flex-1">
-              <p className="font-heading font-bold text-white text-sm">{alert.crypto_name}</p>
-              <p className="text-[#737373] text-xs">
+              <p className="font-heading font-bold text-[var(--text-primary)] text-sm">{alert.crypto_name}</p>
+              <p className="text-[var(--text-muted)] text-xs">
                 {alert.condition === "above" ? "Au-dessus de" : "En-dessous de"}{" "}
-                <span className="font-mono text-white">
+                <span className="font-mono text-[var(--text-primary)]">
                   {currencySymbol}{alert.target_price.toFixed(2)}
                 </span>
               </p>

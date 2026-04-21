@@ -1,4 +1,5 @@
 from fastapi import FastAPI, APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -12,6 +13,8 @@ from datetime import datetime, timezone
 import requests
 from functools import lru_cache
 import time
+import io
+import csv
 
 
 ROOT_DIR = Path(__file__).parent
@@ -687,6 +690,109 @@ async def update_alert_status(alert_id: str, active: bool):
         raise HTTPException(status_code=404, detail="Alert not found")
     
     return {"message": "Alert updated successfully"}
+
+
+# Portfolio Export Endpoints
+@api_router.get("/portfolio/export/csv")
+async def export_portfolio_csv():
+    """Export portfolio as CSV file"""
+    items = await db.portfolio.find({}, {"_id": 0}).to_list(1000)
+    if not items:
+        raise HTTPException(status_code=404, detail="Portfolio is empty")
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Crypto", "Symbol", "Amount", "Purchase Price", "Date"])
+    for item in items:
+        ts = item.get("timestamp", "")
+        if isinstance(ts, str):
+            date_str = ts[:10]
+        else:
+            date_str = ts.strftime("%Y-%m-%d") if ts else ""
+        writer.writerow([
+            item.get("crypto_name", ""),
+            item.get("crypto_symbol", "").upper(),
+            item.get("amount", 0),
+            item.get("purchase_price", 0),
+            date_str,
+        ])
+    output.seek(0)
+    return StreamingResponse(
+        io.BytesIO(output.getvalue().encode("utf-8")),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=portfolio.csv"},
+    )
+
+
+@api_router.get("/portfolio/export/pdf")
+async def export_portfolio_pdf():
+    """Export portfolio as PDF file"""
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib import colors
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import mm
+
+    items = await db.portfolio.find({}, {"_id": 0}).to_list(1000)
+    if not items:
+        raise HTTPException(status_code=404, detail="Portfolio is empty")
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4, topMargin=20*mm, bottomMargin=20*mm)
+    styles = getSampleStyleSheet()
+
+    title_style = ParagraphStyle("title", parent=styles["Heading1"], fontSize=20, spaceAfter=6)
+    subtitle_style = ParagraphStyle("subtitle", parent=styles["Normal"], fontSize=10, textColor=colors.grey)
+
+    elements = []
+    elements.append(Paragraph("Crypto Portal Pro", title_style))
+    elements.append(Paragraph(f"Export du portfolio — {datetime.now(timezone.utc).strftime('%d/%m/%Y %H:%M UTC')}", subtitle_style))
+    elements.append(Spacer(1, 12))
+
+    data = [["Crypto", "Symbole", "Quantite", "Prix d'achat", "Date"]]
+    total_invested = 0
+    for item in items:
+        ts = item.get("timestamp", "")
+        if isinstance(ts, str):
+            date_str = ts[:10]
+        else:
+            date_str = ts.strftime("%Y-%m-%d") if ts else ""
+        purchase = item.get("purchase_price", 0)
+        amount = item.get("amount", 0)
+        total_invested += purchase * amount
+        data.append([
+            item.get("crypto_name", ""),
+            item.get("crypto_symbol", "").upper(),
+            f"{amount:,.6g}",
+            f"${purchase:,.2f}",
+            date_str,
+        ])
+
+    data.append(["", "", "", f"Total investi: ${total_invested:,.2f}", ""])
+
+    table = Table(data, colWidths=[100, 60, 80, 100, 80])
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#007AFF")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, 0), 10),
+        ("ALIGN", (2, 0), (-1, -1), "RIGHT"),
+        ("BACKGROUND", (0, 1), (-1, -2), colors.HexColor("#F5F5F5")),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -2), [colors.white, colors.HexColor("#F5F5F5")]),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#CCCCCC")),
+        ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+    ]))
+    elements.append(table)
+    doc.build(elements)
+    buf.seek(0)
+
+    return StreamingResponse(
+        buf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": "attachment; filename=portfolio.pdf"},
+    )
 
 
 # Include the router in the main app

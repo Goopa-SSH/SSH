@@ -351,5 +351,59 @@ class TestChartEndpoint:
             pytest.fail(f"Unexpected status code: {response.status_code}")
 
 
+class TestPortfolioExport:
+    """Test Portfolio Export endpoints (CSV and PDF)"""
+    
+    def test_export_csv(self):
+        """Test GET /api/portfolio/export/csv returns CSV file"""
+        response = requests.get(f"{BASE_URL}/api/portfolio/export/csv", timeout=15)
+        assert response.status_code == 200
+        
+        # Check content type
+        content_type = response.headers.get("content-type", "")
+        assert "text/csv" in content_type, f"Expected text/csv, got {content_type}"
+        
+        # Check content disposition header
+        content_disp = response.headers.get("content-disposition", "")
+        assert "attachment" in content_disp
+        assert "portfolio.csv" in content_disp
+        
+        # Validate CSV content
+        content = response.text
+        lines = content.strip().split("\n")
+        assert len(lines) >= 2, "CSV should have header + at least 1 data row"
+        
+        # Check header row
+        header = lines[0]
+        assert "Crypto" in header
+        assert "Symbol" in header
+        assert "Amount" in header
+        assert "Purchase Price" in header
+        assert "Date" in header
+        
+        print(f"CSV export: {len(lines)-1} portfolio items exported")
+        print(f"CSV content:\n{content}")
+    
+    def test_export_pdf(self):
+        """Test GET /api/portfolio/export/pdf returns PDF file"""
+        response = requests.get(f"{BASE_URL}/api/portfolio/export/pdf", timeout=15)
+        assert response.status_code == 200
+        
+        # Check content type
+        content_type = response.headers.get("content-type", "")
+        assert "application/pdf" in content_type, f"Expected application/pdf, got {content_type}"
+        
+        # Check content disposition header
+        content_disp = response.headers.get("content-disposition", "")
+        assert "attachment" in content_disp
+        assert "portfolio.pdf" in content_disp
+        
+        # Validate PDF content starts with PDF magic bytes
+        content = response.content
+        assert content[:4] == b"%PDF", "PDF should start with %PDF magic bytes"
+        
+        print(f"PDF export: {len(content)} bytes")
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

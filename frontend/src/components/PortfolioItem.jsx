@@ -9,20 +9,20 @@ export const PortfolioItem = ({ item, crypto, currencySymbol, onDelete }) => {
 
   return (
     <div
-      className="flex items-center gap-4 px-4 py-3 border-b border-[#262626] hover:bg-[#111111] transition-colors"
+      className="flex items-center gap-4 px-4 py-3 border-b border-[var(--border-color)] hover:bg-[var(--hover-bg)] transition-colors"
       data-testid={`portfolio-item-${item.id}`}
     >
       <div className="flex-1">
-        <p className="font-heading font-bold text-white text-sm">
+        <p className="font-heading font-bold text-[var(--text-primary)] text-sm">
           {item.crypto_name}
         </p>
-        <p className="text-[#737373] text-xs font-mono">
+        <p className="text-[var(--text-muted)] text-xs font-mono">
           {item.amount} {item.crypto_symbol.toUpperCase()} @ {currencySymbol}
           {item.purchase_price.toFixed(2)}
         </p>
       </div>
       <div className="text-right">
-        <p className="font-mono font-semibold text-white text-sm">
+        <p className="font-mono font-semibold text-[var(--text-primary)] text-sm">
           {formatNumber(currentValue, currencySymbol)}
         </p>
         <span

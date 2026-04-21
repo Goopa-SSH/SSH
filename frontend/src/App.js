@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Star, Search, RefreshCw } from "lucide-react";
+import { Star, Search, RefreshCw, Sun, Moon } from "lucide-react";
 import { Toaster } from "@/components/ui/sonner";
 
 import { GlobalStatsBar } from "@/components/GlobalStatsBar";
@@ -29,6 +29,7 @@ import { usePortfolio } from "@/hooks/usePortfolio";
 import { useAlerts } from "@/hooks/useAlerts";
 import { useFavorites } from "@/hooks/useFavorites";
 import { useNotifications } from "@/hooks/useNotifications";
+import { useTheme } from "@/hooks/useTheme";
 
 const CURRENCIES = [
   { value: "usd", label: "USD $", symbol: "$" },
@@ -55,7 +56,7 @@ const TAB_LABELS = {
 const TAB_KEYS = Object.keys(TAB_LABELS);
 
 const TableHeader = () => (
-  <div className="flex items-center gap-4 px-4 py-2 bg-[#050505] border border-[#262626] border-b-0 rounded-t-sm text-[10px] text-[#737373] uppercase tracking-widest">
+  <div className="flex items-center gap-4 px-4 py-2 bg-[var(--bg-primary)] border border-[var(--border-color)] border-b-0 rounded-t-sm text-[10px] text-[var(--text-muted)] uppercase tracking-widest">
     <span className="w-6 text-right">#</span>
     <span className="w-8" />
     <span className="flex-1">Nom</span>
@@ -77,6 +78,7 @@ function App() {
   const [chartMode, setChartMode] = useState("line");
 
   const currencySymbol = getCurrencySymbol(currency);
+  const { theme, toggleTheme } = useTheme();
 
   // Data hooks
   const { cryptoData, trendingData, loading, lastUpdate, fetchMarkets } = useMarketData(currency);
@@ -195,34 +197,42 @@ function App() {
   );
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white font-body">
+    <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] font-body">
       <Toaster position="top-right" />
       <GlobalStatsBar globalStats={globalStats} fearGreed={fearGreed} />
 
       {/* Header */}
-      <header className="bg-[#0A0A0A] border-b border-[#262626]" data-testid="app-header">
+      <header className="bg-[var(--bg-secondary)] border-b border-[var(--border-color)]" data-testid="app-header">
         <div className="max-w-[1440px] mx-auto px-6 py-5 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <div className="w-10 h-10 bg-[#007AFF] rounded-sm flex items-center justify-center font-heading font-black text-lg">C</div>
+            <div className="w-10 h-10 bg-[#007AFF] rounded-sm flex items-center justify-center font-heading font-black text-lg text-white">C</div>
             <div>
-              <h1 className="font-heading font-black text-xl tracking-tight text-white">CRYPTO PORTAL PRO</h1>
-              <p className="text-[#737373] text-xs mt-0.5 tracking-wide">Suivi en temps reel</p>
+              <h1 className="font-heading font-black text-xl tracking-tight text-[var(--text-primary)]">CRYPTO PORTAL PRO</h1>
+              <p className="text-[var(--text-muted)] text-xs mt-0.5 tracking-wide">Suivi en temps reel</p>
             </div>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={toggleTheme}
+              className="p-2 rounded-sm border border-[var(--border-color)] bg-[var(--bg-elevated)] hover:bg-[var(--hover-bg)] transition-colors"
+              data-testid="theme-toggle"
+              aria-label="Toggle theme"
+            >
+              {theme === "dark" ? <Sun size={16} className="text-[var(--text-secondary)]" /> : <Moon size={16} className="text-[var(--text-secondary)]" />}
+            </button>
             <Select value={currency} onValueChange={setCurrency}>
-              <SelectTrigger className="w-28 bg-[#111111] border-[#262626] text-white text-xs rounded-sm" data-testid="currency-toggle">
+              <SelectTrigger className="w-28 bg-[var(--bg-elevated)] border-[var(--border-color)] text-[var(--text-primary)] text-xs rounded-sm" data-testid="currency-toggle">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="bg-[#0A0A0A] border-[#262626]">
+              <SelectContent className="bg-[var(--bg-secondary)] border-[var(--border-color)]">
                 {CURRENCIES.map((c) => (
                   <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
             <div className="text-right hidden sm:block">
-              <p className="text-[10px] text-[#737373] uppercase tracking-widest">Mise a jour</p>
-              <p className="text-xs text-white font-mono">{lastUpdate.toLocaleTimeString("fr-FR")}</p>
+              <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-widest">Mise a jour</p>
+              <p className="text-xs text-[var(--text-primary)] font-mono">{lastUpdate.toLocaleTimeString("fr-FR")}</p>
             </div>
           </div>
         </div>
@@ -238,7 +248,7 @@ function App() {
         />
 
         <Tabs defaultValue="markets" className="space-y-4">
-          <TabsList className="bg-[#0A0A0A] border border-[#262626] rounded-sm h-10 p-1" data-testid="main-tabs">
+          <TabsList className="bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-sm h-10 p-1" data-testid="main-tabs">
             {TAB_KEYS.map((tab) => (
               <TabsTrigger key={tab} value={tab} className="rounded-sm text-xs font-body data-[state=active]:text-white px-3">
                 {TAB_LABELS[tab]}
@@ -250,24 +260,24 @@ function App() {
           <TabsContent value="markets" className="space-y-0" data-testid="markets-tab">
             <div className="flex gap-3 mb-4">
               <div className="relative flex-1">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#737373]" />
-                <Input placeholder="Rechercher..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="bg-[#0A0A0A] border-[#262626] text-white pl-9 rounded-sm text-sm placeholder:text-[#737373]" data-testid="search-input" />
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+                <Input placeholder="Rechercher..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="bg-[var(--bg-secondary)] border-[var(--border-color)] text-[var(--text-primary)] pl-9 rounded-sm text-sm placeholder:text-[var(--text-muted)]" data-testid="search-input" />
               </div>
-              <Button onClick={fetchMarkets} variant="outline" className="bg-[#0A0A0A] border-[#262626] text-[#A3A3A3] hover:text-white hover:bg-[#111111] rounded-sm" data-testid="refresh-button">
+              <Button onClick={fetchMarkets} variant="outline" className="bg-[var(--bg-secondary)] border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-elevated)] rounded-sm" data-testid="refresh-button">
                 <RefreshCw size={14} />
               </Button>
             </div>
             <TableHeader />
             {loading ? (
-              <div className="space-y-0 border border-[#262626] rounded-b-sm overflow-hidden">
+              <div className="space-y-0 border border-[var(--border-color)] rounded-b-sm overflow-hidden">
                 {Array.from({ length: 10 }).map((_, i) => (
-                  <div key={`skeleton-${i}`} className="px-4 py-3 bg-[#0A0A0A] border-b border-[#262626]">
-                    <Skeleton className="h-5 bg-[#111111]" />
+                  <div key={`skeleton-${i}`} className="px-4 py-3 bg-[var(--bg-secondary)] border-b border-[var(--border-color)]">
+                    <Skeleton className="h-5 bg-[var(--bg-elevated)]" />
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="border border-[#262626] rounded-b-sm overflow-hidden">
+              <div className="border border-[var(--border-color)] rounded-b-sm overflow-hidden">
                 {filteredCryptoData.map((crypto, i) => (
                   <CryptoRow key={crypto.id} crypto={crypto} index={i} isFavorite={favorites.includes(crypto.id)} {...rowProps} />
                 ))}
@@ -285,15 +295,15 @@ function App() {
 
           <TabsContent value="favorites" data-testid="favorites-tab">
             {favoriteCryptos.length === 0 ? (
-              <div className="bg-[#0A0A0A] border border-[#262626] rounded-sm p-16 text-center">
-                <Star className="w-12 h-12 mx-auto text-[#262626] mb-4" />
-                <p className="text-white font-heading font-bold">Aucun favori</p>
-                <p className="text-[#737373] text-sm mt-2">Survolez une crypto et cliquez sur l'etoile</p>
+              <div className="bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-sm p-16 text-center">
+                <Star className="w-12 h-12 mx-auto text-[var(--border-color)] mb-4" />
+                <p className="text-[var(--text-primary)] font-heading font-bold">Aucun favori</p>
+                <p className="text-[var(--text-muted)] text-sm mt-2">Survolez une crypto et cliquez sur l'etoile</p>
               </div>
             ) : (
               <>
                 <TableHeader />
-                <div className="border border-[#262626] rounded-b-sm overflow-hidden">
+                <div className="border border-[var(--border-color)] rounded-b-sm overflow-hidden">
                   {favoriteCryptos.map((crypto, i) => (
                     <CryptoRow key={crypto.id} crypto={crypto} index={i} isFavorite {...rowProps} />
                   ))}
@@ -318,9 +328,9 @@ function App() {
       <AlertDialog open={showAlertDialog} onOpenChange={setShowAlertDialog} selectedCrypto={selectedCrypto} currencySymbol={currencySymbol} onSubmit={addPriceAlert} />
       <PortfolioDialog open={showPortfolioDialog} onOpenChange={setShowPortfolioDialog} selectedCrypto={selectedCrypto} currencySymbol={currencySymbol} onSubmit={addPortfolioItem} />
 
-      <footer className="bg-[#0A0A0A] border-t border-[#262626] mt-12" data-testid="app-footer">
+      <footer className="bg-[var(--bg-secondary)] border-t border-[var(--border-color)] mt-12" data-testid="app-footer">
         <div className="max-w-[1440px] mx-auto px-6 py-4">
-          <p className="text-center text-[#737373] text-xs font-mono">CRYPTO PORTAL PRO &middot; Donnees CoinGecko &middot; Mise a jour auto 60s</p>
+          <p className="text-center text-[var(--text-muted)] text-xs font-mono">CRYPTO PORTAL PRO &middot; Donnees CoinGecko &middot; Mise a jour auto 60s</p>
         </div>
       </footer>
     </div>
