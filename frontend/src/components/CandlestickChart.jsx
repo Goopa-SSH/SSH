@@ -44,6 +44,14 @@ export const CandlestickChart = ({ data }) => {
 
   const yScale = (price) => MARGIN.top + chartH - ((price - minP) / (maxP - minP || 1)) * chartH;
 
+  const xLabels = useMemo(() => {
+    if (!data?.length) return [];
+    const step = Math.max(1, Math.floor(data.length / 7));
+    return data
+      .map((c, i) => (i % step === 0 ? { idx: i, timestamp: c.timestamp } : null))
+      .filter(Boolean);
+  }, [data]);
+
   if (!data?.length) {
     return <div className="flex items-center justify-center h-[380px] text-[#737373] text-sm">Chargement des donnees...</div>;
   }
@@ -57,10 +65,10 @@ export const CandlestickChart = ({ data }) => {
         <rect width={svgW} height={SVG_H} fill="#080808" rx={3} />
 
         {/* Grid + Y labels */}
-        {gridLines.map((price, i) => {
+        {gridLines.map((price) => {
           const y = yScale(price);
           return (
-            <g key={`grid-${i}`}>
+            <g key={`grid-${price}`}>
               <line x1={MARGIN.left} y1={y} x2={svgW - MARGIN.right} y2={y} stroke="#1f1f1f" strokeWidth={0.8} />
               <text x={MARGIN.left - 8} y={y + 3} textAnchor="end" fill="#888" fontSize={10} fontFamily="JetBrains Mono">{fmtPrice(price)}</text>
             </g>
@@ -78,7 +86,7 @@ export const CandlestickChart = ({ data }) => {
           const bH = Math.max(bot - top, 2);
 
           return (
-            <g key={`c-${i}`}>
+            <g key={`c-${c.timestamp}`}>
               <line x1={cx} y1={yScale(c.high)} x2={cx} y2={yScale(c.low)} stroke={color} strokeWidth={1.5} />
               <rect x={x} y={top} width={candleW} height={bH} fill={color} />
               <rect x={MARGIN.left + i * slotW} y={MARGIN.top} width={slotW} height={chartH} fill="transparent" onMouseEnter={() => setHoverIdx(i)} style={{ cursor: "crosshair" }} />
@@ -87,12 +95,11 @@ export const CandlestickChart = ({ data }) => {
         })}
 
         {/* X labels */}
-        {data.filter((_, i) => i % Math.max(1, Math.floor(data.length / 7)) === 0).map((c) => {
-          const idx = data.indexOf(c);
-          const x = MARGIN.left + idx * slotW + slotW / 2;
+        {xLabels.map((label) => {
+          const x = MARGIN.left + label.idx * slotW + slotW / 2;
           return (
-            <text key={`x-${c.timestamp}`} x={x} y={SVG_H - 8} textAnchor="middle" fill="#888" fontSize={9} fontFamily="JetBrains Mono">
-              {new Date(c.timestamp).toLocaleDateString("fr-FR", { month: "short", day: "numeric" })}
+            <text key={`x-${label.timestamp}`} x={x} y={SVG_H - 8} textAnchor="middle" fill="#888" fontSize={9} fontFamily="JetBrains Mono">
+              {new Date(label.timestamp).toLocaleDateString("fr-FR", { month: "short", day: "numeric" })}
             </text>
           );
         })}

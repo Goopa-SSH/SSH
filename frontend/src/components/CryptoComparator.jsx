@@ -48,7 +48,7 @@ const MiniBar = ({ values, colors }) => {
         const ratio = v != null && max > 0 ? v / max : 0;
         return (
           <div
-            key={i}
+            key={`bar-${colors[i]}`}
             className="flex-1 rounded-sm transition-all duration-300"
             style={{
               height: `${Math.max(ratio * 100, 4)}%`,
